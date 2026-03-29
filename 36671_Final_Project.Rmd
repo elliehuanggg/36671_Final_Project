@@ -1,0 +1,124 @@
+---
+title: "36-671 Final Project"
+author: "Ellie Huang, Nikita Jayaprakash, Annie Wang, Aishani Pradhan, Steve Wong"
+date: "2026-04-19"
+output: pdf_document
+---
+
+Research question: How do monthly gasoline prices differ across U.S. regions, and how well can national gasoline prices be modeled and forecasted using ARIMA methods?
+
+```{r setup, include = F}
+library(here)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+# This builds a path relative to the project root
+file_path <- here("data", "gasoline_data.xls")
+```
+
+```{r}
+# Read national series from Data 1
+# skip = 2 because:
+# row 1 = title row
+# row 2 = source key row
+# row 3 = actual variable names
+us_data <- read_excel(file_path, sheet = "Data 1", skip = 2)
+
+us_data <- us_data |>
+  rename(
+    Date = 1,
+    US_All_Grades = 2
+  ) |>
+  mutate(Date = as.Date(Date))
+
+# Read regional series from Data 2
+region_data <- read_excel(file_path, sheet = "Data 2", skip = 2)
+
+region_data <- region_data |>
+  rename(
+    Date = 1,
+    East_Coast = 2,
+    New_England = 3,
+    Central_Atlantic = 4,
+    Lower_Atlantic = 5,
+    Midwest = 6,
+    Gulf_Coast = 7,
+    Rocky_Mountain = 8,
+    West_Coast = 9,
+    West_Coast_ex_CA = 10
+  ) |>
+  mutate(Date = as.Date(Date))
+
+# Keep only the series we want for the project
+gas_data <- us_data |>
+  select(Date, US_All_Grades) |>
+  left_join(
+    region_data |>
+      select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
+    by = "Date"
+  )
+
+# Restrict to the common date range where all selected series are observed
+gas_complete <- gas_data |>
+  drop_na()
+
+# Check the resulting date range
+min_date <- min(gas_complete$Date)
+max_date <- max(gas_complete$Date)
+
+cat("Common date range:", format(min_date, "%Y-%m"), "to", format(max_date, "%Y-%m"), "\n")
+cat("Number of monthly observations:", nrow(gas_complete), "\n")
+
+# Preview beginning and end of the restricted data
+head(gas_complete)
+tail(gas_complete)
+```
+
+```{r}
+# Create the main time series for ARIMA modeling
+main_df <- gas_complete |>
+  select(Date, US_All_Grades)
+
+start_year <- as.numeric(format(min(main_df$Date), "%Y"))
+start_month <- as.numeric(format(min(main_df$Date), "%m"))
+
+us_ts <- ts(
+  main_df$US_All_Grades,
+  start = c(start_year, start_month),
+  frequency = 12
+)
+
+plot(
+  us_ts,
+  main = "U.S. All Grades Gasoline Prices",
+  xlab = "Year",
+  ylab = "Dollars per Gallon"
+)
+
+# Create regional ts objects using the same restricted sample
+east_ts <- ts(gas_complete$East_Coast, start = c(start_year, start_month), frequency = 12)
+midwest_ts <- ts(gas_complete$Midwest, start = c(start_year, start_month), frequency = 12)
+gulf_ts <- ts(gas_complete$Gulf_Coast, start = c(start_year, start_month), frequency = 12)
+rocky_ts <- ts(gas_complete$Rocky_Mountain, start = c(start_year, start_month), frequency = 12)
+west_ts <- ts(gas_complete$West_Coast, start = c(start_year, start_month), frequency = 12)
+
+ts.plot(
+  east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
+  col = 1:5,
+  lty = 1,
+  xlab = "Year",
+  ylab = "Dollars per Gallon",
+  main = "Regional Monthly Gasoline Prices"
+)
+
+legend(
+  "topleft",
+  legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+  col = 1:5,
+  lty = 1,
+  bty = "n"
+)
+```
+
