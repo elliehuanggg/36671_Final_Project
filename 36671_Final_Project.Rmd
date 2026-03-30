@@ -5,38 +5,31 @@ date: "2026-04-19"
 output: pdf_document
 ---
 
-Research question: How do monthly gasoline prices differ across U.S. regions, and how well can national gasoline prices be modeled and forecasted using ARIMA methods?
+Research question: 
 
-```{r setup, include = F}
+# Finding, downloading and cleaning up relevant time series data
+
+```{r setup, include = FALSE}
 library(here)
+library(readr)
 library(readxl)
 library(dplyr)
 library(tidyr)
 library(ggplot2)
 
-# This builds a path relative to the project root
 file_path <- here("data", "gasoline_data.xls")
+brent_path <- here("data", "brent_crude_monthly_1993_present.csv")
 ```
 
-```{r}
-# Read national series from Data 1
-# skip = 2 because:
-# row 1 = title row
-# row 2 = source key row
-# row 3 = actual variable names
-us_data <- read_excel(file_path, sheet = "Data 1", skip = 2)
+```{r import-and-clean, message = FALSE}
+# Load gasoline data
+# skip = 2 because row 1 = title, row 2 = source key, row 3 = actual variable names
 
-us_data <- us_data |>
-  rename(
-    Date = 1,
-    US_All_Grades = 2
-  ) |>
-  mutate(Date = as.Date(Date))
+us_data <- read_excel(file_path, sheet = "Data 1", skip = 2) |>
+  rename(Date = 1, US_All_Grades = 2) |>
+  mutate(Date = format(as.Date(Date), "%Y-%m"))
 
-# Read regional series from Data 2
-region_data <- read_excel(file_path, sheet = "Data 2", skip = 2)
-
-region_data <- region_data |>
+region_data <- read_excel(file_path, sheet = "Data 2", skip = 2) |>
   rename(
     Date = 1,
     East_Coast = 2,
@@ -49,76 +42,85 @@ region_data <- region_data |>
     West_Coast = 9,
     West_Coast_ex_CA = 10
   ) |>
-  mutate(Date = as.Date(Date))
+  mutate(Date = format(as.Date(Date), "%Y-%m"))
 
-# Keep only the series we want for the project
-gas_data <- us_data |>
+# Join national + the five regional series we use, restrict to common date range
+gas_complete <- us_data |>
   select(Date, US_All_Grades) |>
   left_join(
-    region_data |>
-      select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
+    region_data |> select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
     by = "Date"
-  )
-
-# Restrict to the common date range where all selected series are observed
-gas_complete <- gas_data |>
+  ) |>
   drop_na()
 
-# Check the resulting date range
-min_date <- min(gas_complete$Date)
-max_date <- max(gas_complete$Date)
+cat("Common gasoline date range:", min(gas_complete$Date), "to", max(gas_complete$Date), "\n")
+cat("Observations:", nrow(gas_complete), "\n")
 
-cat("Common date range:", format(min_date, "%Y-%m"), "to", format(max_date, "%Y-%m"), "\n")
-cat("Number of monthly observations:", nrow(gas_complete), "\n")
-
-# Preview beginning and end of the restricted data
-head(gas_complete)
-tail(gas_complete)
+# Load Brent crude oil data
+brent_data <- read_csv(brent_path) |>
+  rename(Date = DATE, Brent = Brent_Price_USD) |>
+  mutate(
+    Date = format(as.Date(Date), "%Y-%m"),
+    Brent = as.numeric(Brent)
+  )
 ```
 
-```{r}
-# Create the main time series for ARIMA modeling
-main_df <- gas_complete |>
-  select(Date, US_All_Grades)
-
-start_year <- as.numeric(format(min(main_df$Date), "%Y"))
-start_month <- as.numeric(format(min(main_df$Date), "%m"))
-
-us_ts <- ts(
-  main_df$US_All_Grades,
-  start = c(start_year, start_month),
-  frequency = 12
+```{r gasoline-ts}
+# Convert gasoline series to ts objects
+# Pull start date once and reuse for all regional series
+start_vec <- c(
+  as.numeric(substr(min(gas_complete$Date), 1, 4)),
+  as.numeric(substr(min(gas_complete$Date), 6, 7))
 )
 
-plot(
-  us_ts,
-  main = "U.S. All Grades Gasoline Prices",
-  xlab = "Year",
-  ylab = "Dollars per Gallon"
-)
+us_ts <- ts(gas_complete$US_All_Grades, start = start_vec, frequency = 12)
+east_ts <- ts(gas_complete$East_Coast, start = start_vec, frequency = 12)
+midwest_ts <- ts(gas_complete$Midwest, start = start_vec, frequency = 12)
+gulf_ts <- ts(gas_complete$Gulf_Coast, start = start_vec, frequency = 12)
+rocky_ts <- ts(gas_complete$Rocky_Mountain, start = start_vec, frequency = 12)
+west_ts <- ts(gas_complete$West_Coast, start = start_vec, frequency = 12)
 
-# Create regional ts objects using the same restricted sample
-east_ts <- ts(gas_complete$East_Coast, start = c(start_year, start_month), frequency = 12)
-midwest_ts <- ts(gas_complete$Midwest, start = c(start_year, start_month), frequency = 12)
-gulf_ts <- ts(gas_complete$Gulf_Coast, start = c(start_year, start_month), frequency = 12)
-rocky_ts <- ts(gas_complete$Rocky_Mountain, start = c(start_year, start_month), frequency = 12)
-west_ts <- ts(gas_complete$West_Coast, start = c(start_year, start_month), frequency = 12)
+# Plot national and regional gasoline prices
+plot(us_ts,
+     main = "U.S. All Grades Gasoline Prices",
+     xlab = "Year", ylab = "Dollars per Gallon")
 
-ts.plot(
-  east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
-  col = 1:5,
-  lty = 1,
-  xlab = "Year",
-  ylab = "Dollars per Gallon",
-  main = "Regional Monthly Gasoline Prices"
-)
-
-legend(
-  "topleft",
-  legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
-  col = 1:5,
-  lty = 1,
-  bty = "n"
-)
+ts.plot(east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
+        col = 1:5, lty = 1,
+        main = "Regional Monthly Gasoline Prices",
+        xlab = "Year", ylab = "Dollars per Gallon")
+legend("topleft",
+       legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+       col = 1:5, lty = 1, bty = "n")
 ```
 
+```{r brent-plot}
+# Plot Brent crude oil prices
+brent_data |>
+  mutate(Date_plot = as.Date(paste0(Date, "-01"))) |>
+  ggplot(aes(x = Date_plot, y = Brent)) +
+  geom_line() +
+  labs(title = "Monthly Brent Crude Oil Prices",
+       x = "Date", y = "USD per Barrel") +
+  theme_minimal()
+```
+
+```{r gas-brent-join}
+# Join gasoline and Brent crude, restrict to overlapping months
+gas_brent <- gas_complete |>
+  select(Date, US_All_Grades) |>
+  inner_join(brent_data, by = "Date") |>
+  drop_na()
+
+cat("Common gas-Brent date range:", min(gas_brent$Date), "to", max(gas_brent$Date), "\n")
+cat("Observations:", nrow(gas_brent), "\n")
+
+# Convert to ts objects on the shared date range
+start_brent <- c(
+  as.numeric(substr(min(gas_brent$Date), 1, 4)),
+  as.numeric(substr(min(gas_brent$Date), 6, 7))
+)
+
+gas_ts_brent <- ts(gas_brent$US_All_Grades, start = start_brent, frequency = 12)
+brent_ts <- ts(gas_brent$Brent, start = start_brent, frequency = 12)
+```
