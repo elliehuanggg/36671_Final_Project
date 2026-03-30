@@ -79,7 +79,11 @@ midwest_ts <- ts(gas_complete$Midwest, start = start_vec, frequency = 12)
 gulf_ts <- ts(gas_complete$Gulf_Coast, start = start_vec, frequency = 12)
 rocky_ts <- ts(gas_complete$Rocky_Mountain, start = start_vec, frequency = 12)
 west_ts <- ts(gas_complete$West_Coast, start = start_vec, frequency = 12)
+```
 
+# Exploratory Data Analysis
+
+```{r}
 # Plot national and regional gasoline prices
 plot(us_ts,
      main = "U.S. All Grades Gasoline Prices",
