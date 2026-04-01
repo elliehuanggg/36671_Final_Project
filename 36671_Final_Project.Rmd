@@ -17,6 +17,8 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(GGally)
+library(vars)
+library(forecast)
 
 file_path <- here("data", "PET_PRI_GND_A_EPM0_PTE_DPGAL_W.xls")
 brent_path <- here("data", "brent_crude_weekly_1993_present.csv")
@@ -50,7 +52,7 @@ region_data <- read_excel(file_path, sheet = "Data 2", skip = 2) |>
 # Join national + five regional series, drop any incomplete weeks
 gas_complete <- us_data |>
   left_join(
-    region_data |> select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
+    region_data |> dplyr::select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
     by = "Date"
   ) |>
   drop_na()
@@ -84,7 +86,7 @@ west_ts <- ts(gas_complete$West_Coast, start = start_vec, frequency = 52)
 
 # Build multivariate ts for VAR analysis
 regions_ts <- gas_complete |>
-  select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
   as.matrix() |>
   ts(start = start_vec, frequency = 52)
 
@@ -159,7 +161,7 @@ Comparing Brent crude to U.S. gasoline, the two series move very closely togethe
 ```{r}
 # Pairwise scatterplots to check contemporaneous correlations before looking at lags
 gas_complete |>
-  select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
   ggpairs(
     title = "Pairwise Regional Gasoline Prices",
     lower = list(continuous = wrap("points", alpha = 0.2, size = 0.5)),
@@ -215,3 +217,55 @@ par(mfrow = c(1, 1))
 ```
 
 The ACF and PACF plots show that both weekly U.S. gasoline and Brent crude prices are highly persistent over time. The ACF stays large and declines slowly, which suggests that prices are strongly related to their past values even many weeks back. The PACF has 2 significant spikes at lags 1 and 2 and cuts off after, which suggests AR structure? Doesn't looks like there is clear seasonality over the first year of weekly lags.
+
+# Model Selection - Regional VAR Model
+
+```{r}
+x = ts(dplyr::select(gas_complete, East_Coast:West_Coast), 
+       # fourteenth week of 1993
+       start = c(1993, 14), frequency = 52)
+VARselect(x, lag.max = 14, type = 'both')
+```
+Using p = 2 due to EDA ACF/PACF graphs + SC (same as BIC).
+
+```{r}
+fit_regional = VAR(x, p = 2, type = 'both')
+summary(fit_regional)
+plot(ts(resid(fit_regional), start = c(1993, 14), frequency = 52))
+```
+
+
+```{r, fig.height = 9}
+acf(resid(fit_regional), 52)
+pred_regional = predict(fit_regional, n.ahead = 24, ci = 0.95)
+plot(pred_regional)
+forecast(fit_regional, h = 12) |>
+  autoplot() + xlim(c(2020, 2027))
+fanchart(pred_regional, xlim = c(1500,1800))
+```
+
+# Model Selection - Crude + US Retail VAR Model
+
+```{r}
+x = ts(dplyr::select(gas_crude, US_All_Grades, Brent), 
+       # fourteenth week of 1993
+       start = c(1993, 14), frequency = 52)
+VARselect(x, lag.max = 14, type = 'both')
+```
+Using p = 3 due to SC (same as BIC).
+
+```{r}
+fit_crude = VAR(x, p = 3, type = 'both')
+summary(fit_crude)
+plot(ts(resid(fit_crude), start = c(1993, 14), frequency = 52))
+```
+
+
+```{r, fig.height = 6}
+acf(resid(fit_crude), 52)
+pred_crude = predict(fit_crude, n.ahead = 24, ci = 0.95)
+plot(pred_crude)
+forecast(fit_crude, h = 12) |>
+  autoplot() + xlim(c(2020, 2027))
+fanchart(pred_crude, xlim = c(1500,1800))
+```
