@@ -221,15 +221,31 @@ The ACF and PACF plots show that both weekly U.S. gasoline and Brent crude price
 # Model Selection - Regional VAR Model
 
 ```{r}
+# log for variation
+gas_complete$East_Coast <- log(gas_complete$East_Coast)
+gas_complete$Midwest <- log(gas_complete$Midwest)
+gas_complete$Gulf_Coast <- log(gas_complete$Gulf_Coast)
+gas_complete$Rocky_Mountain <- log(gas_complete$Rocky_Mountain)
+gas_complete$West_Coast <- log(gas_complete$West_Coast)
+# subtract mean to detrend
+gas_complete$East_Coast <- gas_complete$East_Coast - mean(gas_complete$East_Coast)
+gas_complete$Midwest <- gas_complete$Midwest - mean(gas_complete$Midwest)
+gas_complete$Gulf_Coast <- gas_complete$Gulf_Coast - mean(gas_complete$Gulf_Coast)
+gas_complete$Rocky_Mountain <- gas_complete$Rocky_Mountain - mean(gas_complete$Rocky_Mountain)
+gas_complete$West_Coast <- gas_complete$West_Coast - mean(gas_complete$West_Coast)
+```
+
+
+```{r}
 x = ts(dplyr::select(gas_complete, East_Coast:West_Coast), 
        # fourteenth week of 1993
        start = c(1993, 14), frequency = 52)
-VARselect(x, lag.max = 14, type = 'both')
+VARselect(x, lag.max = 14, type = 'none')
 ```
 Using p = 2 due to EDA ACF/PACF graphs + SC (same as BIC).
 
 ```{r}
-fit_regional = VAR(x, p = 2, type = 'both')
+fit_regional = VAR(x, p = 2, type = 'none')
 summary(fit_regional)
 plot(ts(resid(fit_regional), start = c(1993, 14), frequency = 52))
 ```
@@ -247,15 +263,26 @@ fanchart(pred_regional, xlim = c(1500,1800))
 # Model Selection - Crude + US Retail VAR Model
 
 ```{r}
+# log for variation
+gas_crude$US_All_Grades <- log(gas_crude$US_All_Grades)
+gas_crude$Brent <- log(gas_crude$Brent)
+
+# subtract mean to detrend
+gas_crude$US_All_Grades <- gas_crude$US_All_Grades - mean(gas_crude$US_All_Grades)
+gas_crude$Brent <- gas_crude$Brent - mean(gas_crude$Brent)
+```
+
+
+```{r}
 x = ts(dplyr::select(gas_crude, US_All_Grades, Brent), 
        # fourteenth week of 1993
        start = c(1993, 14), frequency = 52)
-VARselect(x, lag.max = 14, type = 'both')
+VARselect(x, lag.max = 14, type = 'none')
 ```
 Using p = 3 due to SC (same as BIC).
 
 ```{r}
-fit_crude = VAR(x, p = 3, type = 'both')
+fit_crude = VAR(x, p = 3, type = 'none')
 summary(fit_crude)
 plot(ts(resid(fit_crude), start = c(1993, 14), frequency = 52))
 ```
