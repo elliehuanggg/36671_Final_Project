@@ -5,11 +5,11 @@ date: "2026-04-19"
 output: pdf_document
 ---
 
-## Research Question 
+## Research Question
 
 How do regional gasoline prices co-move over time, and what are the lead-lag relationships between regions and between crude oil prices and retail gasoline prices?
 
-## Preparing Time Series
+## 1. Preparing Time Series
 
 ```{r}
 library(here)
@@ -116,7 +116,7 @@ gas_ts_crude <- ts(gas_crude$US_All_Grades, start = start_crude, frequency = 52)
 crude_ts <- ts(gas_crude$Brent, start = start_crude, frequency = 52)
 ```
 
-## Exploratory Data Analysis
+## 2. Exploratory Data Analysis
 
 ```{r}
 # Time series plots: national, regional, and crude oil
@@ -179,9 +179,9 @@ The pairwise scatterplots indicate strong positive contemporaneous relationships
 
 This shows that the regions are clearly not independent; therefore it is reasonable to study them as a connected multivariate time series. Having established strong contemporaneous correlation, we can next investigate whether some regions tend to lead or lag others over time. This provides a natural motivation for using lag-based analysis and vector autoregressive models.
 
-## Crude Oil Prices vs US Gasoline Price Analyses
+## 3. Crude Oil Prices vs US Gasoline Price Analyses
 
-### Converting to Stationary Series
+### (i) Converting to Stationary Series
 
 Both crude oil and gasoline prices exhibit strong trends over time, so we first transform the series to make them approximately stationary before analyzing their lag relationships.
 
@@ -202,7 +202,7 @@ par(mfrow = c(1,1))
 
 After taking first differences of the log prices, both series fluctuate around a stable mean with rapidly decaying ACFs. The PACFs show one dominant spike at lag 1 followed by little remaining dependence, which is consistent with a low order AR process and suggests that the transformed series are sufficiently stationary for CCF and VAR analysis.
 
-### CCF and LR to Find Lag Dependence
+### (ii) CCF and LR to Find Lag Dependence
 
 ```{r}
 # Negative lag means Brent leads gasoline
@@ -259,7 +259,7 @@ summary(fit_oil)
 
 The lagged scatterplots and regression reinforce the CCF results. The relationship between crude oil and gasoline changes is strongest after one week, with weaker but still positive associations after two and three weeks. This supports the conclusion that gasoline prices adjust gradually over several weeks following a change in crude oil prices.
 
-### VAR(2) Model
+### (iii) VAR(2) Model
 
 ```{r}
 library(vars)
@@ -281,13 +281,129 @@ summary(fit_var_oil)
 
 ##### Questions:
 
--   Which VAR model to use in terms of
+-   Which VAR model to use in terms of AIC, HQ, SC, FPE? SC with parameter = 2 because simplest?
 
     ```         
     AIC(n)  HQ(n)  SC(n) FPE(n) 
     ```
 
 -   why would the effect of gasoline (l2) be stronger on crude oil than crude oil on gasoline (estimates)? remaining correlation? are the estimates even comparable?
+
+### (iv) Diagnostics
+
+```{r}
+# fitted values and residuals from VAR(2)
+fitted_vals <- fitted(fit_var_oil)
+res <- resid(fit_var_oil)
+```
+
+```{r}
+# observed and fitted gasoline changes
+obs_gas <- window(x_oil[, "Gasoline"], start = time(x_oil)[3])
+fit_gas <- ts(fitted_vals[, "Gasoline"],
+              start = start(obs_gas),
+              frequency = frequency(obs_gas))
+
+plot(obs_gas, type = "l", col = "black",
+     main = "Observed vs Fitted: Gasoline",
+     ylab = "Differenced Log Gasoline", xlab = "Time")
+lines(fit_gas, col = "red")
+legend("topright",
+       legend = c("Observed", "Fitted"),
+       col = c("black", "red"), lwd = 1)
+```
+
+```{r}
+plot(obs_gas, fit_gas,
+     pch = 16,
+     xlab = "Observed",
+     ylab = "Fitted",
+     main = "Observed vs Fitted: Gasoline")
+abline(0, 1, col = "red", lwd = 2)
+```
+
+```{r}
+# observed and fitted Brent changes
+obs_brent <- window(x_oil[, "Brent"], start = time(x_oil)[3])
+fit_brent <- ts(fitted_vals[, "Brent"],
+                start = start(obs_brent),
+                frequency = frequency(obs_brent))
+
+plot(obs_brent, type = "l", col = "black",
+     main = "Observed vs Fitted: Brent",
+     ylab = "Differenced Log Brent", xlab = "Time")
+lines(fit_brent, col = "red")
+legend("topright",
+       legend = c("Observed", "Fitted"),
+       col = c("black", "red"), lwd = 1)
+```
+
+```{r}
+plot(obs_brent, fit_brent,
+     pch = 16,
+     xlab = "Observed",
+     ylab = "Fitted",
+     main = "Observed vs Fitted: Brent")
+abline(0, 1, col = "red", lwd = 2)
+```
+
+```{r}
+# residual series
+res_gas <- ts(res[, "Gasoline"],
+              start = time(x_oil)[3],
+              frequency = frequency(x_oil))
+
+res_brent <- ts(res[, "Brent"],
+                start = time(x_oil)[3],
+                frequency = frequency(x_oil))
+
+par(mfrow = c(2,2))
+
+plot(res_gas, type = "l",
+     main = "Residuals: Gasoline",
+     ylab = "", xlab = "Time")
+abline(h = 0, lty = 2, col = "gray")
+
+acf(res[, "Gasoline"],
+    main = "ACF: Gasoline Residuals")
+
+plot(res_brent, type = "l",
+     main = "Residuals: Brent",
+     ylab = "", xlab = "Time")
+abline(h = 0, lty = 2, col = "gray")
+
+acf(res[, "Brent"],
+    main = "ACF: Brent Residuals")
+
+par(mfrow = c(1,1))
+```
+
+```{r}
+# residual cross-correlation
+ccf(res[, "Gasoline"], res[, "Brent"],
+    main = "CCF: Gasoline and Brent Residuals")
+```
+
+```{r}
+# normal Q-Q plots
+par(mfrow = c(1,2))
+
+qqnorm(res[, "Gasoline"],
+       main = "Normal Q-Q Plot: Gasoline Residuals")
+qqline(res[, "Gasoline"])
+
+qqnorm(res[, "Brent"],
+       main = "Normal Q-Q Plot: Brent Residuals")
+qqline(res[, "Brent"])
+
+par(mfrow = c(1,1))
+```
+
+Overall, the diagnostic plots suggest that the VAR(2) model provides an adequate fit to the differenced gasoline and crude oil series. The fitted values track the observed series reasonably well, particularly for gasoline, and the residuals fluctuate around zero without obvious trends or structure. The residual ACFs and CCF indicate little remaining serial or cross-correlation beyond lag 0, suggesting that the model captures the main lead–lag relationships. Although the Q-Q plots show some deviations in the tails, especially for Brent, the residuals are otherwise reasonably well behaved, so there is no major evidence of model misspecification.
+
+##### Questions: This doesnt seem like the best model for brent with gas as covariate, but is that relevant to us? since we care more about brent predicting gas. 
+
+### (v) Granger Causality to Further Investigate Direction
 
 ```{r}
 causality(fit_var_oil, cause = "Brent")
@@ -296,6 +412,10 @@ causality(fit_var_oil, cause = "Gasoline")
 
 The Granger causality tests indicate bidirectional predictive relationships between crude oil and gasoline prices. However, the predictive effect from oil to gasoline is substantially stronger than the reverse. This suggests that crude oil prices are the primary driver of gasoline price changes, while the predictive power of gasoline for oil likely reflects common shocks and market comovement rather than a strong causal effect.
 
-## US Gasoline Prices Regional Comparison
+### (vi) Forecast?
+
+##### Question: how long do we want to forecast?
+
+## 4. US Gasoline Prices Regional Comparison
 
 Perform pairwise analysis for every 2 regions, same logic as above if approved.
