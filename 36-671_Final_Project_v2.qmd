@@ -1,0 +1,301 @@
+---
+title: "36-671 Final Project"
+author: "Ellie Huang, Nikita Jayaprakash, Annie Wang, Aishani Pradhan, Steve Wong"
+date: "2026-04-19"
+output: pdf_document
+---
+
+## Research Question 
+
+How do regional gasoline prices co-move over time, and what are the lead-lag relationships between regions and between crude oil prices and retail gasoline prices?
+
+## Preparing Time Series
+
+```{r}
+library(here)
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(vars)
+library(forecast)
+
+file_path <- here("data", "PET_PRI_GND_A_EPM0_PTE_DPGAL_W.xls")
+brent_path <- here("data", "brent_crude_weekly_1993_present.csv")
+```
+
+You can add options to executable code like this
+
+```{r}
+# Load weekly gasoline data
+# skip = 2 because row 1 = title, row 2 = source key, row 3 = actual variable names
+us_data <- read_excel(file_path, sheet = "Data 1", skip = 2) |>
+  rename(Date = 1, US_All_Grades = 2) |>
+  mutate(Date = as.Date(Date), US_All_Grades = as.numeric(US_All_Grades)) |>
+  arrange(Date)
+
+region_data <- read_excel(file_path, sheet = "Data 2", skip = 2) |>
+  rename(
+    Date = 1,
+    East_Coast = 2,
+    New_England = 3,
+    Central_Atlantic = 4,
+    Lower_Atlantic = 5,
+    Midwest = 6,
+    Gulf_Coast = 7,
+    Rocky_Mountain = 8,
+    West_Coast = 9,
+    West_Coast_ex_CA = 10
+  ) |>
+  mutate(Date = as.Date(Date)) |>
+  mutate(across(-Date, as.numeric)) |>
+  arrange(Date)
+
+# Join national + five regional series, drop any incomplete weeks
+gas_complete <- us_data |>
+  left_join(
+    region_data |> dplyr::select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
+    by = "Date"
+  ) |>
+  drop_na()
+
+cat("Weekly gasoline date range:", min(gas_complete$Date), "to", max(gas_complete$Date), "\n")
+cat("Observations:", nrow(gas_complete), "\n")
+
+# Load weekly Brent crude oil data
+crude_data <- read_csv(brent_path) |>
+  rename(Brent = Brent_Price_USD) |>
+  mutate(Date = as.Date(Date), Brent = as.numeric(Brent)) |>
+  arrange(Date)
+
+cat("Crude oil date range:", min(crude_data$Date), "to", max(crude_data$Date), "\n")
+```
+
+```{r}
+# Convert all series to weekly ts objects
+# Get week number via %U (Sunday start); +1 to make it start from 1
+start_vec <- c(
+  as.numeric(format(min(gas_complete$Date), "%Y")),
+  as.numeric(format(min(gas_complete$Date), "%U")) + 1
+)
+
+us_ts <- ts(gas_complete$US_All_Grades, start = start_vec, frequency = 52)
+east_ts <- ts(gas_complete$East_Coast, start = start_vec, frequency = 52)
+midwest_ts <- ts(gas_complete$Midwest, start = start_vec, frequency = 52)
+gulf_ts <- ts(gas_complete$Gulf_Coast, start = start_vec, frequency = 52)
+rocky_ts <- ts(gas_complete$Rocky_Mountain, start = start_vec, frequency = 52)
+west_ts <- ts(gas_complete$West_Coast, start = start_vec, frequency = 52)
+
+# Build multivariate ts for VAR analysis
+regions_ts <- gas_complete |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  as.matrix() |>
+  ts(start = start_vec, frequency = 52)
+
+colnames(regions_ts) <- c("East_Coast", "Midwest", "Gulf_Coast", "Rocky_Mountain", "West_Coast")
+```
+
+```{r}
+# Both series are weekly, join directly on date
+gas_crude <- gas_complete |>
+  inner_join(crude_data, by = "Date") |>
+  drop_na()
+
+cat("Gas price-crude oil overlapping date range:", min(gas_crude$Date), "to", max(gas_crude$Date), "\n")
+cat("Observations:", nrow(gas_crude), "\n")
+
+# Shared start for weekly ts
+start_crude <- c(
+  as.numeric(format(min(gas_crude$Date), "%Y")),
+  as.numeric(format(min(gas_crude$Date), "%U")) + 1
+)
+
+gas_ts_crude <- ts(gas_crude$US_All_Grades, start = start_crude, frequency = 52)
+crude_ts <- ts(gas_crude$Brent, start = start_crude, frequency = 52)
+```
+
+## Exploratory Data Analysis
+
+```{r}
+# Time series plots: national, regional, and crude oil
+plot(us_ts,
+     main = "U.S. All Grades Gasoline Prices (Weekly)",
+     xlab = "Year", ylab = "Dollars per Gallon")
+
+ts.plot(east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
+        col = 1:5, lty = 1,
+        main = "Regional Weekly Gasoline Prices",
+        xlab = "Year", ylab = "Dollars per Gallon")
+legend("topleft",
+       legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+       col = 1:5, lty = 1, bty = "n")
+
+# Standardize for comparison since crude oil and gas prices are on diff scales/units
+crude_scaled <- ts(
+  as.numeric(scale(as.numeric(crude_ts))),
+  start = start(crude_ts),
+  frequency = frequency(crude_ts)
+)
+
+gas_scaled <- ts(
+  as.numeric(scale(as.numeric(gas_ts_crude))),
+  start = start(gas_ts_crude),
+  frequency = frequency(gas_ts_crude)
+)
+
+ts.plot(crude_scaled, gas_scaled,
+        col = c("steelblue", "firebrick"), lty = 1,
+        main = "Standardized Brent Crude Oil vs. U.S. Gasoline Prices (Weekly)",
+        xlab = "Year", ylab = "Standardized Value")
+legend("topleft",
+       legend = c("Brent Crude Oil", "U.S. Gasoline"),
+       col = c("steelblue", "firebrick"), lty = 1, bty = "n")
+```
+
+The national gasoline series shows long swings over time rather than fluctuating around a constant level, suggesting strong persistence and possible nonstationarity in the level series. There seems to be a general upward movement over the sample. The plots also suggest changing variability over time, with larger swings during some periods, especially around major shocks, which may indicate heteroskedasticity.
+
+The regional plot shows that all five regions follow the same broad pattern, rising and falling during the same major episodes.
+
+At the same time, the regions are not exactly the same. The West Coast is generally higher than the other regions and appears more volatile, especially in later years. Rocky Mountain also shows somewhat greater variability at certain points, while the Gulf Coast and Midwest tend to track the national pattern more closely and at lower price levels. So the data show both strong shared movement and meaningful regional differences.
+
+Comparing Brent crude to U.S. gasoline, the two series move very closely together over time. This suggests that crude oil is an important driver of gasoline prices, although there are other factors like refining, transportation, taxes, regional conditions, etc.
+
+##### Question: Ask prof if we need to include these scatterplots too, or just the lagged scatters.
+
+```{r}
+# Pairwise scatterplots to check contemporaneous correlations before looking at lags
+gas_complete |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  ggpairs(
+    title = "Pairwise Regional Gasoline Prices",
+    lower = list(continuous = wrap("points", alpha = 0.2, size = 0.5)),
+    upper = list(continuous = wrap("cor", size = 3))
+  )
+```
+
+The pairwise scatterplots indicate strong positive contemporaneous relationships among weekly gasoline prices across all regions. For every regional pair, the points form a clear upward-sloping pattern, suggesting that when prices are relatively high in one region, they also tend to be relatively high in the other during the same week. This is consistent with the very high pairwise correlations, which range from 0.945 to 0.996. Several pairs, such as East Coast and Midwest, fall especially tightly along a line, indicating very strong same-week linear association. Pairs involving the West Coast appear somewhat more dispersed by comparison, though the relationship remains strongly positive. However, because these plots compare observations from the same week only, they do not provide evidence about lead-lag structure or whether price changes in one region tend to precede changes in another.
+
+This shows that the regions are clearly not independent; therefore it is reasonable to study them as a connected multivariate time series. Having established strong contemporaneous correlation, we can next investigate whether some regions tend to lead or lag others over time. This provides a natural motivation for using lag-based analysis and vector autoregressive models.
+
+## Crude Oil Prices vs US Gasoline Price Analyses
+
+### Converting to Stationary Series
+
+Both crude oil and gasoline prices exhibit strong trends over time, so we first transform the series to make them approximately stationary before analyzing their lag relationships.
+
+```{r}
+# Log difference 
+dGas <- diff(log(gas_ts_crude))
+dBrent <- diff(log(crude_ts))
+
+par(mfrow = c(3,2))
+plot(dGas, main = "Differenced Log U.S. Gasoline")
+plot(dBrent, main = "Differenced Log Brent Crude")
+acf(dGas, lag.max = 20, main = "ACF: Differenced Log Gasoline")
+acf(dBrent, lag.max = 20, main = "ACF: Differenced Log Brent")
+pacf(dGas, lag.max = 20, main = "PACF: Differenced Log Gasoline")
+pacf(dBrent, lag.max = 20, main = "PACF: Differenced Log Brent")
+par(mfrow = c(1,1))
+```
+
+After taking first differences of the log prices, both series fluctuate around a stable mean with rapidly decaying ACFs. The PACFs show one dominant spike at lag 1 followed by little remaining dependence, which is consistent with a low order AR process and suggests that the transformed series are sufficiently stationary for CCF and VAR analysis.
+
+### CCF and LR to Find Lag Dependence
+
+```{r}
+# Negative lag means Brent leads gasoline
+ccf(dBrent, dGas,
+    lag.max = 12,
+    main = "CCF: Brent vs U.S. Gasoline (Differenced Log Prices)")
+```
+
+The cross-correlation of the differenced log prices is largest at lag 0, indicating that gasoline and crude oil prices move together strongly within the same week. There are also significant positive correlations at lags of approximately -1 to -3 weeks, suggesting that changes in Brent crude prices continue to pass through into gasoline prices over the following several weeks.
+
+##### Question: how does the instantaneous correlation impact our analysis?
+
+```{r}
+oil_gas_lag <- ts.intersect(
+  gas = dGas,
+  brentL1 = stats::lag(dBrent, -1),
+  brentL2 = stats::lag(dBrent, -2),
+  brentL3 = stats::lag(dBrent, -3),
+  dframe = TRUE
+)
+
+# scatterplots
+
+par(mfrow = c(1,3))
+
+plot(oil_gas_lag$brentL1, oil_gas_lag$gas,
+     xlab = "Brent change 1 week earlier",
+     ylab = "Current gasoline change",
+     main = "Lag 1")
+abline(lm(gas ~ brentL1, data = oil_gas_lag), col = "red")
+
+plot(oil_gas_lag$brentL2, oil_gas_lag$gas,
+     xlab = "Brent change 2 weeks earlier",
+     ylab = "Current gasoline change",
+     main = "Lag 2")
+abline(lm(gas ~ brentL2, data = oil_gas_lag), col = "red")
+
+plot(oil_gas_lag$brentL3, oil_gas_lag$gas,
+     xlab = "Brent change 3 weeks earlier",
+     ylab = "Current gasoline change",
+     main = "Lag 3")
+abline(lm(gas ~ brentL3, data = oil_gas_lag), col = "red")
+
+par(mfrow = c(1,1))
+```
+
+```{r}
+# Check if lagged valued of crude oil week 1-3 are signficant in predicting gas prices
+fit_oil <- lm(gas ~ brentL1 + brentL2 + brentL3,
+              data = oil_gas_lag)
+
+summary(fit_oil)
+```
+
+The lagged scatterplots and regression reinforce the CCF results. The relationship between crude oil and gasoline changes is strongest after one week, with weaker but still positive associations after two and three weeks. This supports the conclusion that gasoline prices adjust gradually over several weeks following a change in crude oil prices.
+
+### VAR(2) Model
+
+```{r}
+library(vars)
+
+# combine the stationary series
+x_oil <- cbind(
+  Gasoline = dGas,
+  Brent = dBrent
+)
+
+# choose lag length
+VARselect(x_oil, lag.max = 8, type = "none")
+```
+
+```{r}
+fit_var_oil <- VAR(x_oil, p = 2, type = "none")
+summary(fit_var_oil)
+```
+
+##### Questions:
+
+-   Which VAR model to use in terms of
+
+    ```         
+    AIC(n)  HQ(n)  SC(n) FPE(n) 
+    ```
+
+-   why would the effect of gasoline (l2) be stronger on crude oil than crude oil on gasoline (estimates)? remaining correlation? are the estimates even comparable?
+
+```{r}
+causality(fit_var_oil, cause = "Brent")
+causality(fit_var_oil, cause = "Gasoline")
+```
+
+The Granger causality tests indicate bidirectional predictive relationships between crude oil and gasoline prices. However, the predictive effect from oil to gasoline is substantially stronger than the reverse. This suggests that crude oil prices are the primary driver of gasoline price changes, while the predictive power of gasoline for oil likely reflects common shocks and market comovement rather than a strong causal effect.
+
+## US Gasoline Prices Regional Comparison
+
+Perform pairwise analysis for every 2 regions, same logic as above if approved.
