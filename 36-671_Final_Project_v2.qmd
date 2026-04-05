@@ -292,7 +292,7 @@ summary(fit_var_oil)
 ### (iv) Diagnostics
 
 ```{r}
-# fitted values and residuals from VAR(2)
+# Fitted values and residuals from VAR(2)
 fitted_vals <- fitted(fit_var_oil)
 res <- resid(fit_var_oil)
 ```
