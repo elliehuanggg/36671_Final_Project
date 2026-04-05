@@ -298,7 +298,7 @@ res <- resid(fit_var_oil)
 ```
 
 ```{r}
-# observed and fitted gasoline changes
+# Observed and fitted gasoline changes
 obs_gas <- window(x_oil[, "Gasoline"], start = time(x_oil)[3])
 fit_gas <- ts(fitted_vals[, "Gasoline"],
               start = start(obs_gas),
