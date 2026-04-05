@@ -264,7 +264,7 @@ The lagged scatterplots and regression reinforce the CCF results. The relationsh
 ```{r}
 library(vars)
 
-# combine the stationary series
+# Combine the stationary series
 x_oil <- cbind(
   Gasoline = dGas,
   Brent = dBrent
