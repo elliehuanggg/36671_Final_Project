@@ -319,6 +319,10 @@ plot(obs_gas, fit_gas,
      xlab = "Observed",
      ylab = "Fitted",
      main = "Observed vs Fitted: Gasoline")
+legend("topleft", 
+       legend = paste("Correlation:", 
+                      round(cor(obs_gas, fit_gas), 3)),
+       bty = "n")
 abline(0, 1, col = "red", lwd = 2)
 ```
 
@@ -344,6 +348,10 @@ plot(obs_brent, fit_brent,
      xlab = "Observed",
      ylab = "Fitted",
      main = "Observed vs Fitted: Brent")
+legend("topleft", 
+       legend = paste("Correlation:", 
+                      round(cor(obs_brent, fit_brent), 3)), 
+       bty = "n")
 abline(0, 1, col = "red", lwd = 2)
 ```
 
@@ -374,14 +382,17 @@ abline(h = 0, lty = 2, col = "gray")
 
 acf(res[, "Brent"],
     main = "ACF: Brent Residuals")
-
-par(mfrow = c(1,1))
 ```
 
 ```{r}
 # residual cross-correlation
+par(mfrow = c(1,2))
+
 ccf(res[, "Gasoline"], res[, "Brent"],
     main = "CCF: Gasoline and Brent Residuals")
+
+ccf(res[, "Brent"], res[, "Gasoline"],
+    main = "CCF: Brent and Gasoline Residuals")
 ```
 
 ```{r}
@@ -399,9 +410,9 @@ qqline(res[, "Brent"])
 par(mfrow = c(1,1))
 ```
 
-Overall, the diagnostic plots suggest that the VAR(2) model provides an adequate fit to the differenced gasoline and crude oil series. The fitted values track the observed series reasonably well, particularly for gasoline, and the residuals fluctuate around zero without obvious trends or structure. The residual ACFs and CCF indicate little remaining serial or cross-correlation beyond lag 0, suggesting that the model captures the main lead–lag relationships. Although the Q-Q plots show some deviations in the tails, especially for Brent, the residuals are otherwise reasonably well behaved, so there is no major evidence of model misspecification.
+Overall, the diagnostic plots suggest that the VAR(2) model provides an adequate fit to the differenced gasoline and crude oil series. The fitted values track the observed series reasonably well, particularly for gasoline, and the residuals fluctuate around zero without obvious trends or structure. The residual ACFs and CCFs indicate little remaining serial or cross-correlation beyond lag 0, suggesting that the model captures the main lead–lag relationships. Although the Q-Q plots show some deviations in the tails, especially for Brent, the residuals are otherwise reasonably well behaved, so there is no major evidence of model misspecification.
 
-##### Questions: This doesnt seem like the best model for brent with gas as covariate, but is that relevant to us? since we care more about brent predicting gas. 
+##### Questions: This doesn't seem like the best model for brent with gas as covariate, but is that relevant to us? since we care more about brent predicting gas. 
 
 ### (v) Granger Causality to Further Investigate Direction
 
