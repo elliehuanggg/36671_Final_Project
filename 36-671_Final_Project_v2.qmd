@@ -224,7 +224,7 @@ oil_gas_lag <- ts.intersect(
   dframe = TRUE
 )
 
-# scatterplots
+# Scatterplots
 
 par(mfrow = c(1,3))
 
