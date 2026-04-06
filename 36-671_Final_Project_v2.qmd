@@ -21,6 +21,7 @@ library(ggplot2)
 library(GGally)
 library(vars)
 library(forecast)
+library(lubridate)
 
 file_path <- here("data", "PET_PRI_GND_A_EPM0_PTE_DPGAL_W.xls")
 brent_path <- here("data", "brent_crude_weekly_1993_present.csv")
@@ -325,6 +326,37 @@ legend("topleft",
        bty = "n")
 abline(0, 1, col = "red", lwd = 2)
 ```
+
+```{r}
+## GAS
+# top 10 residuals
+time <- time(dGas)[-c(1,2)]
+top_resid_gas <- order(abs(res_gas), decreasing = TRUE)[1:10]
+# corresponding times in date format
+top_resid_gas_time <- time[top_resid_gas] |>
+  date_decimal() |>
+  as.Date()
+# in tabular format
+tibble::tibble(
+  `Time (Gas)` = top_resid_gas_time,
+  `Top Residuals (Gas)` = res_gas[top_resid_gas])
+```
+```{r}
+## BRENT
+# top 10 residuals
+time <- time(dBrent)[-c(1,2)]
+top_resid_brent <- order(abs(res_brent), decreasing = TRUE)[1:10]
+# corresponding times in date format
+top_resid_brent_time <- time[top_resid_brent] |>
+  date_decimal() |>
+  as.Date()
+# in tabular format
+tibble::tibble(
+  `Time (Brent)` = top_resid_brent_time,
+  `Top Residuals (Brent)` = res_brent[top_resid_brent]
+)
+```
+
 
 ```{r}
 # observed and fitted Brent changes
