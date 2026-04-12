@@ -486,7 +486,7 @@ par(mfrow = c(1, 1))
 
 ```
 
-The differenced log models all seem stationary. From the plots of the differenced log models, they seem to be mean zero with no heteroskedasticity and no linear trend. The ACFs tend to decay quickly to zero, and the PACFs only have a spike close lag 0. There is no evidence of nonstationarity.
+The differenced log models all seem stationary. From the plots of the differenced log models, they seem to be mean zero with no heteroskedasticity and no linear trend. The ACFs tend to decay quickly to zero, and the PACFs only have a spike close lag 0. There is no strong evidence of nonstationarity.
 
 ### (ii) CCF to understand lag dependence
 
@@ -519,7 +519,7 @@ par(mfrow = c(1, 1))
 
 ```
 
-Most of the regions are highly correlated with shared shocks (i.e. largest spike at zero). It's notable that the Midwest does tend to slightly lead the other regions because for the Midwest vs. [region] plots, while the largest spike is at zero, there is a stronger skew to the negative.
+Most of the regions are highly correlated with shared shocks (i.e. largest spike at zero). It's notable that the Midwest does tend to slightly lead the other regions because for the Midwest vs. \[region\] plots, while the largest spike is at zero, there is a stronger skew to the negative.
 
 ### (iii) VAR(1) Model
 
@@ -542,9 +542,17 @@ summary(fit_var_regions)
 
 Since all roots are less than 1, the model is stable.
 
-**NOTE: finish evaluations of coefficients, notice both significance as well as magnitude of coefficients**
+**East Coast Model:** The East Coast gasoline prices have significant coefficients for one lagged difference of Midwest, Gulf Coast and West Coast. The Gulf Coast and Midwest coefficients have the relatively largest coefficients. It's notable that this model does not have a significant coefficient with its own lag.
 
-Correlation pattern of residuals: higher correlation means they are affected by the same shocks, whereas lower correlation means they are affected by more local dynamics. **FINISH**
+**Midwest Model:** The Midwest gasoline prices have significant coefficients for one lagged difference with itself, East Coast, Gulf Coast and Rocky Mountain. Midwest and East Coast have comparable and the largest coefficients in terms of magnitude, but East Coast has a negative relationship. In addition, it's notable that this model has a significant relation with all regions except the West Coast.
+
+**Gulf Coast:** The Gulf Coast gasoline prices has significant coefficients for one lagged difference of the Midwest, Rocky Mountain (though barely significant and small magnitude) and West Coast. It notably doesn't have a relationship with its own lag, but has the largest coefficient with the Midwest.
+
+**Rocky Mountains:** All coefficients of the Rocky Mountain gasoline prices are significant, with the largest coefficient from the West Coast coefficient.
+
+**West Coast:** All coefficients of the West Coast gasoline prices are significant, with the largest coefficient from its own lag.
+
+For the correlation pattern of residuals, higher correlation means they are affected by the same shocks, whereas lower correlation means they are affected by more local dynamics. The East Coast, Midwest and Gulf Coast residuals are all strongly correlated (correlation higher than 0.7), which makes sense since they are adjacent regions and are affected by the same shocks. While the Rocky Mountain and West Coast are also correlated with the other regions, their correlations for residuals are never higher than 0.6, implying that they are likely affected by more local dynamics.
 
 ### (iv) Diagnostics
 
@@ -609,11 +617,83 @@ par(mfrow = c(1, 1))
 
 ```
 
-Residuals are largely white noise except Rocky Mountain has a slight decay in ACF. 
-
-**FINISH: which spikes and are they at the same time?**
-
+Residuals are largely white noise except Rocky Mountain has a slight decay in ACF.
 again rocky mountain weird
+
+```{r, fig.height = 6}
+ts.plot(ts(res_regions[,1], 
+           start = time(x_regions)[p_used + 1],
+           frequency = frequency(x_regions)), 
+        ts(res_regions[,2], 
+           start = time(x_regions)[p_used + 1],
+           frequency = frequency(x_regions)), 
+        ts(res_regions[,3], 
+           start = time(x_regions)[p_used + 1],
+           frequency = frequency(x_regions)), 
+        ts(res_regions[,4], 
+           start = time(x_regions)[p_used + 1],
+           frequency = frequency(x_regions)), 
+        ts(res_regions[,5], 
+           start = time(x_regions)[p_used + 1],
+           frequency = frequency(x_regions)),
+        col = 1:5, lty = 1,
+        main = "Overlayed Residuals",
+        xlab = "Year", ylab = "Dollars per Gallon")
+legend("topleft",
+       legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+       col = 1:5, lty = 1, bty = "n")
+
+```
+
+
+```{r}
+resids_and_time <- data.frame(
+  time = time(x_regions)[-1],
+  avg_resid = rowMeans(res_regions),
+  res_regions)
+# highest average residual
+resids_and_time |>
+  dplyr::select(time, avg_resid) |>
+  arrange(desc(avg_resid)) |> 
+  head(5) |>
+  arrange(time)
+# highest East Coast residual
+resids_and_time |>
+  dplyr::select(time, East_Coast) |>
+  arrange(desc(East_Coast)) |> 
+  head(5) |>
+  arrange(time)
+
+# highest Midwest residual
+resids_and_time |>
+  dplyr::select(time, Midwest) |>
+  arrange(desc(Midwest)) |> 
+  head(5) |>
+  arrange(time)
+
+# highest Gulf Coast residual
+resids_and_time |>
+  dplyr::select(time, Gulf_Coast) |>
+  arrange(desc(Gulf_Coast)) |> 
+  head(5) |>
+  arrange(time)
+
+# highest Rocky Mountain residual
+resids_and_time |>
+  dplyr::select(time, Rocky_Mountain) |>
+  arrange(desc(Rocky_Mountain)) |> 
+  head(5) |>
+  arrange(time)
+
+# highest West Coast residual
+resids_and_time |>
+  dplyr::select(time, West_Coast) |>
+  arrange(desc(West_Coast)) |> 
+  head(5) |>
+  arrange(time)
+```
+
+There is some overlap in the highest residuals for individual regions and overall average residuals.
 
 ```{r}
 # Residual CCFs for all regional pairs
