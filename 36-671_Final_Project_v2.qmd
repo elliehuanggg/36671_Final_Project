@@ -2,7 +2,7 @@
 title: "36-671 Final Project"
 author: "Ellie Huang, Nikita Jayaprakash, Annie Wang, Aishani Pradhan, Steve Wong"
 date: "2026-04-19"
-output: pdf_document
+format: pdf
 ---
 
 ## Research Question
@@ -189,7 +189,7 @@ Both crude oil and gasoline prices exhibit strong trends over time, so we first 
 dGas <- diff(log(gas_ts_crude))
 dBrent <- diff(log(crude_ts))
 
-par(mfrow = c(3,2))
+#par(mfrow = c(3,2))
 plot(dGas, main = "Differenced Log U.S. Gasoline")
 plot(dBrent, main = "Differenced Log Brent Crude")
 acf(dGas, lag.max = 20, main = "ACF: Differenced Log Gasoline")
@@ -328,6 +328,7 @@ abline(0, 1, col = "red", lwd = 2)
 ```{r}
 ## GAS
 # top 10 residuals
+res_gas <- res[,1]
 time <- time(dGas)[-c(1,2)]
 top_resid_gas <- order(abs(res_gas), decreasing = TRUE)[1:10]
 # corresponding times in date format
@@ -343,6 +344,7 @@ tibble::tibble(
 ```{r}
 ## BRENT
 # top 10 residuals
+res_brent <- res[,2]
 time <- time(dBrent)[-c(1,2)]
 top_resid_brent <- order(abs(res_brent), decreasing = TRUE)[1:10]
 # corresponding times in date format
@@ -484,12 +486,28 @@ par(mfrow = c(1, 1))
 
 ```
 
+The differenced log models all seem stationary. From the plots of the differenced log models, they seem to be mean zero with no heteroskedasticity and no linear trend. The ACFs tend to decay quickly to zero, and the PACFs only have a spike close lag 0. There is no evidence of nonstationarity.
+
 ### (ii) CCF to understand lag dependence
 
 ```{r}
 # Pairwise CCFs for all 10 regional pairs
 region_pairs <- combn(colnames(dRegions), 2, simplify = FALSE)
 
+# Put pairs involving Midwest first
+region_pairs <- c(
+  Filter(function(x) "Midwest" %in% x, region_pairs),
+  Filter(function(x) !("Midwest" %in% x), region_pairs)
+)
+
+# Reorder within each pair so Midwest is first
+region_pairs <- lapply(region_pairs, function(pair) {
+  if ("Midwest" %in% pair) {
+    c("Midwest", setdiff(pair, "Midwest"))
+  } else {
+    pair
+  }
+})
 
 for (pair in region_pairs) {
   ccf(dRegions[, pair[1]], dRegions[, pair[2]],
@@ -500,6 +518,8 @@ for (pair in region_pairs) {
 par(mfrow = c(1, 1))
 
 ```
+
+Most of the regions are highly correlated with shared shocks (i.e. largest spike at zero). It's notable that the Midwest does tend to slightly lead the other regions because for the Midwest vs. [region] plots, while the largest spike is at zero, there is a stronger skew to the negative.
 
 ### (iii) VAR(1) Model
 
@@ -519,6 +539,12 @@ fit_var_regions <- VAR(x_regions, p = 1, type = "const")
 summary(fit_var_regions)
 
 ```
+
+Since all roots are less than 1, the model is stable.
+
+**NOTE: finish evaluations of coefficients, notice both significance as well as magnitude of coefficients**
+
+Correlation pattern of residuals: higher correlation means they are affected by the same shocks, whereas lower correlation means they are affected by more local dynamics. **FINISH**
 
 ### (iv) Diagnostics
 
@@ -550,13 +576,18 @@ for (nm in colnames(x_regions)) {
        ylab = "Fitted",
        main = gsub("_", " ", nm))
   abline(0, 1, col = "red", lwd = 2)
+  legend("topleft", 
+       legend = paste("Correlation:", 
+                      round(cor(obs, fit), 3)),
+       bty = "n")
+
 }
 
 par(mfrow = c(1, 1))
 
 ```
 
-Does good job everywhere except pre 2000s for rocky mountain.
+Does good job everywhere except pre 2000s for rocky mountain. Midwest captures mean structure but no shocks.
 
 ```{r}
 # Residual series and residual ACFs
@@ -567,7 +598,7 @@ for (nm in colnames(res_regions)) {
           frequency = frequency(x_regions)),
        type = "l",
        main = paste("Residuals:", gsub("_", " ", nm)),
-       ylab = "", xlab = "Time")
+       ylab = "", xlab = "Time", ylim = c(-0.2,0.2))
   abline(h = 0, lty = 2, col = "gray")
   
   acf(res_regions[, nm],
@@ -578,11 +609,30 @@ par(mfrow = c(1, 1))
 
 ```
 
+Residuals are largely white noise except Rocky Mountain has a slight decay in ACF. 
+
+**FINISH: which spikes and are they at the same time?**
+
 again rocky mountain weird
 
 ```{r}
 # Residual CCFs for all regional pairs
 region_pairs <- combn(colnames(res_regions), 2, simplify = FALSE)
+
+# Put pairs involving Rocky Mountain first
+region_pairs <- c(
+  Filter(function(x) "Rocky_Mountain" %in% x, region_pairs),
+  Filter(function(x) !("Rocky_Mountain" %in% x), region_pairs)
+)
+
+# Reorder within each pair so Rocky Mountain is first
+region_pairs <- lapply(region_pairs, function(pair) {
+  if ("Rocky_Mountain" %in% pair) {
+    c("Rocky_Mountain", setdiff(pair, "Rocky_Mountain"))
+  } else {
+    pair
+  }
+})
 
 for (pair in region_pairs) {
   ccf(res_regions[, pair[1]], res_regions[, pair[2]],
@@ -594,6 +644,10 @@ for (pair in region_pairs) {
 par(mfrow = c(1, 1))
 
 ```
+
+CCF is strange for Rocky Mountain comparison, but only has spikes at lag 0 for all other CCF comparisons.
+
+**FINISH: why????**
 
 ```{r}
 # Normal Q-Q plots
@@ -607,8 +661,10 @@ for (nm in colnames(res_regions)) {
 par(mfrow = c(1, 1))
 ```
 
-Heavy tailed expected - maybe look into outliers?
+Heavy tailed expected - maybe look into outliers? deviation from qq-line is likely to due larger shocks.
 
 ### (v) Granger Causality (pairwise)
+
+Granger causality does not make sense for regional pairs, and any lags between regions can be determined by CCF and VAR coefficients.
 
 ### (vi) Forecast
