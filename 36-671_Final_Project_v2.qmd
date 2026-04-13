@@ -456,6 +456,318 @@ causality(fit_var_oil, cause = "Gasoline")
 The Granger causality tests indicate bidirectional predictive relationships between crude oil and gasoline prices. However, the predictive effect from oil to gasoline is substantially stronger than the reverse. This suggests that crude oil prices are the primary driver of gasoline price changes, while the predictive power of gasoline for oil likely reflects common shocks and market comovement rather than a strong causal effect.
 
 ### (vi) Forecast?
+Don't know how to get 95% CI for fanchart
+
+Plotted forecast using regular plot, fanchart, and ggplot; didn't know which style we want
+
+```{r}
+# pred_var_oil = predict(fit_var_oil, n.ahead = 24, ci = 0.95)
+# plot(pred_var_oil)
+# forecast(fit_var_oil, h = 24) |>
+#   autoplot() + xlim(c(2020, 2027))
+# fanchart(pred_var_oil, xlim = c(1500,1800))
+```
+
+```{r}
+# 1 week
+pred_var_oil_1 = predict(fit_var_oil, n.ahead = 1, ci = 0.95)
+fc_oil_1 <- forecast(fit_var_oil, h = 1, level = 95)
+
+# GAS
+plot(pred_var_oil_1, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_1, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_1$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_1, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_1, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_1$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+```
+
+```{r}
+# 4 weeks
+pred_var_oil_4 = predict(fit_var_oil, n.ahead = 4, ci = 0.95)
+fc_oil_4 <- forecast(fit_var_oil, h = 4, level = 95)
+
+# GAS
+plot(pred_var_oil_4, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_4, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_4$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_4, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_4, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_4$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+```
+
+```{r}
+# 12 weeks
+pred_var_oil_12 = predict(fit_var_oil, n.ahead = 12, ci = 0.95)
+fc_oil_12 <- forecast(fit_var_oil, h = 12, level = 95)
+
+# GAS
+plot(pred_var_oil_12, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+fanchart(pred_var_oil_12, names = "Gasoline", 
+         main = "Forecast for Gasoline",
+         xlim = c(1500,1800))
+autoplot(fc_oil_12$forecast$Gasoline) +
+  ggtitle("Forecast for Gasoline") +
+  xlim(c(2020, 2027)) +
+  theme_minimal()
+
+# BRENT
+plot(pred_var_oil_12, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+fanchart(pred_var_oil_12, names = "Brent", 
+         main = "Forecast for Brent",
+         xlim = c(1500,1800))
+autoplot(fc_oil_12$forecast$Brent) +
+  ggtitle("Forecast for Brent") +
+  xlim(c(2020, 2027)) +
+  theme_minimal()
+```
+
+```{r}
+# 13 weeks (Quarter of a year)
+pred_var_oil_13 = predict(fit_var_oil, n.ahead = 13, ci = 0.95)
+fc_oil_13 <- forecast(fit_var_oil, h = 13, level = 95)
+
+# GAS
+plot(pred_var_oil_13, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_13, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_13$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_13, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_13, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_13$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+```
+
+```{r}
+# 24 weeks
+pred_var_oil_24 = predict(fit_var_oil, n.ahead = 24, ci = 0.95)
+fc_oil_24 <- forecast(fit_var_oil, h = 24, level = 95)
+
+# GAS
+plot(pred_var_oil_24, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_24, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_24$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_24, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_24, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_24$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+```
+
+```{r}
+# 26 weeks (Half a year)
+pred_var_oil_26 = predict(fit_var_oil, n.ahead = 26, ci = 0.95)
+fc_oil_26 <- forecast(fit_var_oil, h = 26, level = 95)
+
+# GAS
+plot(pred_var_oil_26, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_26, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_26$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_26, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_26, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_26$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2027)) +
+#   theme_minimal()
+```
+
+```{r}
+# 36 weeks
+pred_var_oil_36 = predict(fit_var_oil, n.ahead = 36, ci = 0.95)
+fc_oil_36 <- forecast(fit_var_oil, h = 36, level = 95)
+
+# GAS
+plot(pred_var_oil_36, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_36, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_36$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_36, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_36, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_36$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+```
+
+```{r}
+# 39 weeks (3/4 of a year)
+pred_var_oil_39 = predict(fit_var_oil, n.ahead = 39, ci = 0.95)
+fc_oil_39 <- forecast(fit_var_oil, h = 39, level = 95)
+
+# GAS
+plot(pred_var_oil_39, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_39, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_39$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_39, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_39, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_39$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+```
+
+```{r}
+# 48 weeks
+pred_var_oil_48 = predict(fit_var_oil, n.ahead = 48, ci = 0.95)
+fc_oil_48 <- forecast(fit_var_oil, h = 48, level = 95)
+
+# GAS
+plot(pred_var_oil_48, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_48, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_48$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_48, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_48, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_48$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+```
+
+```{r}
+# 52 weeks (A year)
+pred_var_oil_52 = predict(fit_var_oil, n.ahead = 52, ci = 0.95)
+fc_oil_52 <- forecast(fit_var_oil, h = 52, level = 95)
+
+# GAS
+plot(pred_var_oil_52, names = "Gasoline",
+     main = "Forecast for Gasoline",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_52, names = "Gasoline", 
+#          main = "Forecast for Gasoline",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_52$forecast$Gasoline) +
+#   ggtitle("Forecast for Gasoline") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+
+# BRENT
+plot(pred_var_oil_52, names = "Brent",
+     main = "Forecast for Brent",
+     xlim = c(1500,1800))
+# fanchart(pred_var_oil_52, names = "Brent", 
+#          main = "Forecast for Brent",
+#          xlim = c(1500,1800))
+# autoplot(fc_oil_52$forecast$Brent) +
+#   ggtitle("Forecast for Brent") +
+#   xlim(c(2020, 2028)) +
+#   theme_minimal()
+```
+
 
 ##### Question: how long do we want to forecast?
 
@@ -748,3 +1060,316 @@ Heavy tailed expected - maybe look into outliers? deviation from qq-line is like
 Granger causality does not make sense for regional pairs, and any lags between regions can be determined by CCF and VAR coefficients.
 
 ### (vi) Forecast
+Don't know how to get 95% CI for fanchart
+
+Plotted forecast using regular plot, fanchart, and ggplot; didn't know which style we want
+
+```{r}
+# 1 week
+pred_regions_1 <- predict(fit_var_regions, n.ahead = 1, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_1, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_1, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_1 <- forecast(fit_var_regions, h = 1, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_1$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2027)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 4 weeks (One month)
+pred_regions_4 <- predict(fit_var_regions, n.ahead = 4, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_4, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_4, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_4 <- forecast(fit_var_regions, h = 4, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_4$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2027)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 12 weeks
+pred_regions_12 <- predict(fit_var_regions, n.ahead = 12, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_12, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+for (nm in colnames(x_regions)) {
+  fanchart(pred_regions_12, 
+           names = nm, 
+           main = paste("Forecast for", gsub("_", " ", nm)),
+           xlim = c(1500,1800))
+}
+
+fc_regions_12 <- forecast(fit_var_regions, h = 12, level = 95)
+for (nm in colnames(x_regions)) {
+  p <- autoplot(fc_regions_12$forecast[[nm]]) +
+       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+       xlim(c(2020, 2027)) +
+       theme_minimal()
+  print(p)
+}
+```
+
+```{r}
+# 13 weeks (Quarter of a year)
+pred_regions_13 <- predict(fit_var_regions, n.ahead = 13, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_13, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_13, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_13 <- forecast(fit_var_regions, h = 13, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_13$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2027)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 24 weeks
+pred_regions_24 <- predict(fit_var_regions, n.ahead = 24, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_24, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_24, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_24 <- forecast(fit_var_regions, h = 24, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_24$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2027)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 24 weeks
+pred_regions_24 <- predict(fit_var_regions, n.ahead = 24, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_24, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_24, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_24 <- forecast(fit_var_regions, h = 24, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_24$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2027)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 26 weeks (Half a year)
+pred_regions_26 <- predict(fit_var_regions, n.ahead = 26, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_26, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_26, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_26 <- forecast(fit_var_regions, h = 26, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_26$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2027)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 36 weeks
+pred_regions_36 <- predict(fit_var_regions, n.ahead = 36, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_36, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+for (nm in colnames(x_regions)) {
+  fanchart(pred_regions_36,
+           names = nm,
+           main = paste("Forecast for", gsub("_", " ", nm)),
+           xlim = c(1500,1800))
+}
+
+fc_regions_36 <- forecast(fit_var_regions, h = 36, level = 95)
+for (nm in colnames(x_regions)) {
+  p <- autoplot(fc_regions_36$forecast[[nm]]) +
+       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+       xlim(c(2020, 2028)) +
+       theme_minimal()
+  print(p)
+}
+```
+
+```{r}
+# 39 weeks (3/4 of a year)
+pred_regions_39 <- predict(fit_var_regions, n.ahead = 39, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_39, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+for (nm in colnames(x_regions)) {
+  fanchart(pred_regions_39,
+           names = nm,
+           main = paste("Forecast for", gsub("_", " ", nm)),
+           xlim = c(1500,1800))
+}
+
+fc_regions_39 <- forecast(fit_var_regions, h = 39, level = 95)
+for (nm in colnames(x_regions)) {
+  p <- autoplot(fc_regions_39$forecast[[nm]]) +
+       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+       xlim(c(2020, 2028)) +
+       theme_minimal()
+  print(p)
+}
+```
+
+```{r}
+# 48 weeks
+pred_regions_48 <- predict(fit_var_regions, n.ahead = 48, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_48, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_48, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_48 <- forecast(fit_var_regions, h = 48, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_48$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2028)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+```{r}
+# 52 weeks (A year)
+pred_regions_52 <- predict(fit_var_regions, n.ahead = 52, ci = 0.95)
+
+for (nm in colnames(x_regions)) {
+  plot(pred_regions_52, 
+       names = nm, 
+       main = paste("Forecast for", gsub("_", " ", nm)),
+       xlim = c(1500,1800))
+}
+
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_52, 
+#            names = nm, 
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_52 <- forecast(fit_var_regions, h = 52, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_52$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2028)) +
+#        theme_minimal()
+#   print(p)
+# }
+```
+
+
