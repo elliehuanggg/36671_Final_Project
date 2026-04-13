@@ -505,8 +505,8 @@ fc_oil_4 <- forecast(fit_var_oil, h = 4, level = 95)
 
 # GAS
 plot(pred_var_oil_4, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
+     main = "Forecast for Gasoline (4 weeks)",
+     xlim = c(1600,1800))
 # fanchart(pred_var_oil_4, names = "Gasoline", 
 #          main = "Forecast for Gasoline",
 #          xlim = c(1500,1800))
@@ -517,8 +517,8 @@ plot(pred_var_oil_4, names = "Gasoline",
 
 # BRENT
 plot(pred_var_oil_4, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
+     main = "Forecast for Brent (4 weeks)",
+     xlim = c(1600,1800))
 # fanchart(pred_var_oil_4, names = "Brent", 
 #          main = "Forecast for Brent",
 #          xlim = c(1500,1800))
@@ -625,8 +625,8 @@ fc_oil_26 <- forecast(fit_var_oil, h = 26, level = 95)
 
 # GAS
 plot(pred_var_oil_26, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
+     main = "Forecast for Gasoline (6 months)",
+     xlim = c(1600,1800))
 # fanchart(pred_var_oil_26, names = "Gasoline", 
 #          main = "Forecast for Gasoline",
 #          xlim = c(1500,1800))
@@ -637,8 +637,8 @@ plot(pred_var_oil_26, names = "Gasoline",
 
 # BRENT
 plot(pred_var_oil_26, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
+     main = "Forecast for Brent (6 months)",
+     xlim = c(1600,1800))
 # fanchart(pred_var_oil_26, names = "Brent", 
 #          main = "Forecast for Brent",
 #          xlim = c(1500,1800))
@@ -745,8 +745,8 @@ fc_oil_52 <- forecast(fit_var_oil, h = 52, level = 95)
 
 # GAS
 plot(pred_var_oil_52, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
+     main = "Forecast for Gasoline (1 year)",
+     xlim = c(1600,1800))
 # fanchart(pred_var_oil_52, names = "Gasoline", 
 #          main = "Forecast for Gasoline",
 #          xlim = c(1500,1800))
@@ -757,8 +757,8 @@ plot(pred_var_oil_52, names = "Gasoline",
 
 # BRENT
 plot(pred_var_oil_52, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
+     main = "Forecast for Brent (1 year)",
+     xlim = c(1600,1800))
 # fanchart(pred_var_oil_52, names = "Brent", 
 #          main = "Forecast for Brent",
 #          xlim = c(1500,1800))
@@ -1095,12 +1095,11 @@ for (nm in colnames(x_regions)) {
 ```{r}
 # 4 weeks (One month)
 pred_regions_4 <- predict(fit_var_regions, n.ahead = 4, ci = 0.95)
-
 for (nm in colnames(x_regions)) {
   plot(pred_regions_4, 
        names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
+       main = paste("Forecast for", gsub("_", " ", nm), " (4 weeks)"),
+       xlim = c(1600,1800))
 }
 
 # for (nm in colnames(x_regions)) {
@@ -1239,8 +1238,8 @@ pred_regions_26 <- predict(fit_var_regions, n.ahead = 26, ci = 0.95)
 for (nm in colnames(x_regions)) {
   plot(pred_regions_26, 
        names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
+       main = paste("Forecast for", gsub("_", " ", nm), " (6 months)"),
+       xlim = c(1600,1800))
 }
 
 # for (nm in colnames(x_regions)) {
@@ -1351,8 +1350,8 @@ pred_regions_52 <- predict(fit_var_regions, n.ahead = 52, ci = 0.95)
 for (nm in colnames(x_regions)) {
   plot(pred_regions_52, 
        names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
+       main = paste("Forecast for", gsub("_", " ", nm), " (1 year)"),
+       xlim = c(1600,1800))
 }
 
 # for (nm in colnames(x_regions)) {
