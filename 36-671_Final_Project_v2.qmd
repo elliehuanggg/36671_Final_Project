@@ -1271,21 +1271,21 @@ for (nm in colnames(x_regions)) {
        xlim = c(1500,1800))
 }
 
-for (nm in colnames(x_regions)) {
-  fanchart(pred_regions_36,
-           names = nm,
-           main = paste("Forecast for", gsub("_", " ", nm)),
-           xlim = c(1500,1800))
-}
-
-fc_regions_36 <- forecast(fit_var_regions, h = 36, level = 95)
-for (nm in colnames(x_regions)) {
-  p <- autoplot(fc_regions_36$forecast[[nm]]) +
-       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-       xlim(c(2020, 2028)) +
-       theme_minimal()
-  print(p)
-}
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_36,
+#            names = nm,
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_36 <- forecast(fit_var_regions, h = 36, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_36$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2028)) +
+#        theme_minimal()
+#   print(p)
+# }
 ```
 
 ```{r}
@@ -1299,21 +1299,21 @@ for (nm in colnames(x_regions)) {
        xlim = c(1500,1800))
 }
 
-for (nm in colnames(x_regions)) {
-  fanchart(pred_regions_39,
-           names = nm,
-           main = paste("Forecast for", gsub("_", " ", nm)),
-           xlim = c(1500,1800))
-}
-
-fc_regions_39 <- forecast(fit_var_regions, h = 39, level = 95)
-for (nm in colnames(x_regions)) {
-  p <- autoplot(fc_regions_39$forecast[[nm]]) +
-       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-       xlim(c(2020, 2028)) +
-       theme_minimal()
-  print(p)
-}
+# for (nm in colnames(x_regions)) {
+#   fanchart(pred_regions_39,
+#            names = nm,
+#            main = paste("Forecast for", gsub("_", " ", nm)),
+#            xlim = c(1500,1800))
+# }
+# 
+# fc_regions_39 <- forecast(fit_var_regions, h = 39, level = 95)
+# for (nm in colnames(x_regions)) {
+#   p <- autoplot(fc_regions_39$forecast[[nm]]) +
+#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+#        xlim(c(2020, 2028)) +
+#        theme_minimal()
+#   print(p)
+# }
 ```
 
 ```{r}
