@@ -506,26 +506,26 @@ fc_oil_4 <- forecast(fit_var_oil, h = 4, level = 95)
 # GAS
 plot(pred_var_oil_4, names = "Gasoline",
      main = "Forecast for Gasoline (4 weeks)",
-     xlim = c(1600,1800))
+     xlim = c(1700,1750))
 # fanchart(pred_var_oil_4, names = "Gasoline", 
 #          main = "Forecast for Gasoline",
 #          xlim = c(1500,1800))
-# autoplot(fc_oil_4$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
+autoplot(fc_oil_4$forecast$Gasoline) +
+  ggtitle("Forecast for Gasoline") +
+  xlim(c(2025, 2027)) +
+  theme_minimal()
 
 # BRENT
 plot(pred_var_oil_4, names = "Brent",
      main = "Forecast for Brent (4 weeks)",
-     xlim = c(1600,1800))
+     xlim = c(1700,1750))
 # fanchart(pred_var_oil_4, names = "Brent", 
 #          main = "Forecast for Brent",
 #          xlim = c(1500,1800))
-# autoplot(fc_oil_4$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
+autoplot(fc_oil_4$forecast$Brent) +
+  ggtitle("Forecast for Brent") +
+  xlim(c(2025, 2027)) +
+  theme_minimal()
 ```
 
 ```{r}
@@ -626,7 +626,7 @@ fc_oil_26 <- forecast(fit_var_oil, h = 26, level = 95)
 # GAS
 plot(pred_var_oil_26, names = "Gasoline",
      main = "Forecast for Gasoline (6 months)",
-     xlim = c(1600,1800))
+     xlim = c(1700,1750))
 # fanchart(pred_var_oil_26, names = "Gasoline", 
 #          main = "Forecast for Gasoline",
 #          xlim = c(1500,1800))
@@ -638,7 +638,7 @@ plot(pred_var_oil_26, names = "Gasoline",
 # BRENT
 plot(pred_var_oil_26, names = "Brent",
      main = "Forecast for Brent (6 months)",
-     xlim = c(1600,1800))
+     xlim = c(1700,1750))
 # fanchart(pred_var_oil_26, names = "Brent", 
 #          main = "Forecast for Brent",
 #          xlim = c(1500,1800))
@@ -1099,7 +1099,7 @@ for (nm in colnames(x_regions)) {
   plot(pred_regions_4, 
        names = nm, 
        main = paste("Forecast for", gsub("_", " ", nm), " (4 weeks)"),
-       xlim = c(1600,1800))
+       xlim = c(1700,1750))
 }
 
 # for (nm in colnames(x_regions)) {
@@ -1109,14 +1109,14 @@ for (nm in colnames(x_regions)) {
 #            xlim = c(1500,1800))
 # }
 # 
-# fc_regions_4 <- forecast(fit_var_regions, h = 4, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_4$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2027)) +
-#        theme_minimal()
-#   print(p)
-# }
+fc_regions_4 <- forecast(fit_var_regions, h = 4, level = 95)
+for (nm in colnames(x_regions)) {
+  p <- autoplot(fc_regions_4$forecast[[nm]]) +
+       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
+       xlim(c(2020, 2027)) +
+       theme_minimal()
+  print(p)
+}
 ```
 
 ```{r}
@@ -1239,7 +1239,7 @@ for (nm in colnames(x_regions)) {
   plot(pred_regions_26, 
        names = nm, 
        main = paste("Forecast for", gsub("_", " ", nm), " (6 months)"),
-       xlim = c(1600,1800))
+       xlim = c(1700,1750))
 }
 
 # for (nm in colnames(x_regions)) {
