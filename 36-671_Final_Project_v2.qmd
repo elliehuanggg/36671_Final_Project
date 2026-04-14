@@ -504,21 +504,23 @@ pred_var_oil_4 = predict(fit_var_oil, n.ahead = 4, ci = 0.95)
 fc_oil_4 <- forecast(fit_var_oil, h = 4, level = 95)
 
 # GAS
+last_obs_time <- max(time(x_oil))
+forecast_end <- last_obs_time + (8/52)
 plot(pred_var_oil_4, names = "Gasoline",
      main = "Forecast for Gasoline (4 weeks)",
-     xlim = c(1700,1750))
+    xlim = c(last_obs_time - 1, forecast_end))
 # fanchart(pred_var_oil_4, names = "Gasoline", 
 #          main = "Forecast for Gasoline",
 #          xlim = c(1500,1800))
 autoplot(fc_oil_4$forecast$Gasoline) +
   ggtitle("Forecast for Gasoline") +
-  xlim(c(2025, 2027)) +
+  xlim(c(1700,1750)) +
   theme_minimal()
 
 # BRENT
 plot(pred_var_oil_4, names = "Brent",
-     main = "Forecast for Brent (4 weeks)",
-     xlim = c(1700,1750))
+     main = "Forecast for Brent (4 weeks)")
+     #xlim = c(1700,1750))
 # fanchart(pred_var_oil_4, names = "Brent", 
 #          main = "Forecast for Brent",
 #          xlim = c(1500,1800))
