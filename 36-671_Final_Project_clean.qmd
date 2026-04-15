@@ -1,0 +1,1079 @@
+---
+title: "36-671 Final Project"
+author: "Ellie Huang, Nikita Jayaprakash, Annie Wang, Aishani Pradhan, Steve Wong"
+date: "2026-04-19"
+format: pdf
+---
+
+## Research Question
+
+How do regional gasoline prices co-move over time, and what lead-lag relationships appear across regions and between crude oil prices and retail gasoline prices?
+
+## 1. Preparing Time Series
+
+```{r setup, include = FALSE}
+# Core packages
+library(here)
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(vars)
+library(forecast)
+library(lubridate)
+library(tibble)
+```
+
+```{r}
+# File paths
+gas_file_path <- here("data", "PET_PRI_GND_A_EPM0_PTE_DPGAL_W.xls")
+brent_file_path <- here("data", "brent_crude_weekly_1993_present.csv")
+```
+
+```{r}
+# Load weekly U.S. gasoline prices
+us_gas_df <- read_excel(gas_file_path, sheet = "Data 1", skip = 2) |>
+  rename(
+    Date = 1,
+    US_All_Grades = 2
+  ) |>
+  mutate(
+    Date = as.Date(Date),
+    US_All_Grades = as.numeric(US_All_Grades)
+  ) |>
+  arrange(Date)
+
+# Load weekly regional gasoline prices
+region_gas_df <- read_excel(gas_file_path, sheet = "Data 2", skip = 2) |>
+  rename(
+    Date = 1,
+    East_Coast = 2,
+    New_England = 3,
+    Central_Atlantic = 4,
+    Lower_Atlantic = 5,
+    Midwest = 6,
+    Gulf_Coast = 7,
+    Rocky_Mountain = 8,
+    West_Coast = 9,
+    West_Coast_ex_CA = 10
+  ) |>
+  mutate(
+    Date = as.Date(Date),
+    across(-Date, as.numeric)
+  ) |>
+  arrange(Date)
+
+# Keep the five regions used in the regional VAR
+gas_df <- us_gas_df |>
+  left_join(
+    region_gas_df |>
+      dplyr::select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
+    by = "Date"
+  ) |>
+  drop_na()
+
+cat("Weekly gasoline date range:", min(gas_df$Date), "to", max(gas_df$Date), "\n")
+cat("Gasoline observations:", nrow(gas_df), "\n")
+
+# Load weekly Brent crude oil prices
+brent_df <- read_csv(brent_file_path, show_col_types = FALSE) |>
+  rename(Brent = Brent_Price_USD) |>
+  mutate(
+    Date = as.Date(Date),
+    Brent = as.numeric(Brent)
+  ) |>
+  arrange(Date)
+
+cat("Brent date range:", min(brent_df$Date), "to", max(brent_df$Date), "\n")
+```
+
+```{r}
+# Helper to create weekly ts objects
+make_weekly_ts <- function(x, start_date) {
+  ts(
+    x,
+    start = c(
+      as.numeric(format(start_date, "%Y")),
+      as.numeric(format(start_date, "%U")) + 1
+    ),
+    frequency = 52
+  )
+}
+
+gas_start_date <- min(gas_df$Date)
+
+# Univariate gasoline series
+us_gas_ts <- make_weekly_ts(gas_df$US_All_Grades, gas_start_date)
+east_ts <- make_weekly_ts(gas_df$East_Coast, gas_start_date)
+midwest_ts <- make_weekly_ts(gas_df$Midwest, gas_start_date)
+gulf_ts <- make_weekly_ts(gas_df$Gulf_Coast, gas_start_date)
+rocky_ts <- make_weekly_ts(gas_df$Rocky_Mountain, gas_start_date)
+west_ts <- make_weekly_ts(gas_df$West_Coast, gas_start_date)
+
+# Multivariate gasoline series for regional VAR analysis
+region_var_ts <- gas_df |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  as.matrix() |>
+  ts(
+    start = c(
+      as.numeric(format(gas_start_date, "%Y")),
+      as.numeric(format(gas_start_date, "%U")) + 1
+    ),
+    frequency = 52
+  )
+
+colnames(region_var_ts) <- c(
+  "East_Coast", "Midwest", "Gulf_Coast", "Rocky_Mountain", "West_Coast"
+)
+```
+
+```{r}
+# Align gasoline and Brent crude on common weekly dates
+gas_brent_df <- gas_df |>
+  inner_join(brent_df, by = "Date") |>
+  drop_na()
+
+cat(
+  "Gasoline-Brent overlap:",
+  format(min(gas_brent_df$Date), "%Y-%m-%d"), "to",
+  format(max(gas_brent_df$Date), "%Y-%m-%d"), "\n"
+)
+cat("Overlap observations:", nrow(gas_brent_df), "\n")
+
+gas_brent_start_date <- min(gas_brent_df$Date)
+
+gas_ts_brent_overlap <- make_weekly_ts(gas_brent_df$US_All_Grades, gas_brent_start_date)
+brent_ts <- make_weekly_ts(gas_brent_df$Brent, gas_brent_start_date)
+```
+
+## 2. Exploratory Data Analysis
+
+```{r}
+# National gasoline prices
+plot(
+  us_gas_ts,
+  main = "U.S. All Grades Gasoline Prices (Weekly)",
+  xlab = "Year",
+  ylab = "Dollars per Gallon"
+)
+
+# Regional gasoline prices
+ts.plot(
+  east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
+  col = 1:5, lty = 1,
+  main = "Regional Weekly Gasoline Prices",
+  xlab = "Year",
+  ylab = "Dollars per Gallon"
+)
+legend(
+  "topleft",
+  legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+  col = 1:5, lty = 1, bty = "n"
+)
+
+# Standardize gasoline and Brent for visual comparison
+gas_scaled_ts <- ts(
+  as.numeric(scale(as.numeric(gas_ts_brent_overlap))),
+  start = start(gas_ts_brent_overlap),
+  frequency = frequency(gas_ts_brent_overlap)
+)
+
+brent_scaled_ts <- ts(
+  as.numeric(scale(as.numeric(brent_ts))),
+  start = start(brent_ts),
+  frequency = frequency(brent_ts)
+)
+
+ts.plot(
+  brent_scaled_ts, gas_scaled_ts,
+  col = c("steelblue", "firebrick"), lty = 1,
+  main = "Standardized Brent Crude Oil and U.S. Gasoline Prices",
+  xlab = "Year",
+  ylab = "Standardized Value"
+)
+legend(
+  "topleft",
+  legend = c("Brent crude oil", "U.S. gasoline"),
+  col = c("steelblue", "firebrick"),
+  lty = 1,
+  bty = "n"
+)
+```
+
+The national gasoline series shows long swings and persistent level changes rather than fluctuations around a fixed mean. That pattern suggests the level series is nonstationary and should be transformed before lag-based modeling.
+
+The five regional series move together closely during major price episodes, but they are not identical. The West Coast is usually the highest-priced region and appears more volatile, while the Gulf Coast and Midwest stay closer to the national pattern and tend to lie at lower price levels.
+
+The standardized gasoline and Brent series also move closely together over time. This supports the idea that crude oil is an important input into retail gasoline pricing, while still leaving room for pass-through delays and region-specific effects.
+
+```{r}
+# Pairwise contemporaneous relationships across regions
+gas_df |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  ggpairs(
+    title = "Pairwise Regional Gasoline Prices",
+    lower = list(continuous = wrap("points", alpha = 0.2, size = 0.5)),
+    upper = list(continuous = wrap("cor", size = 3))
+  )
+```
+
+The pairwise scatterplots show strong positive same-week relationships across all five regions. The reported correlations are uniformly high, ranging from 0.945 to 0.996, so the regions clearly are not evolving independently.
+
+Several pairs, especially East Coast and Midwest, fall very tightly along a line. Pairs involving the West Coast are slightly more dispersed, which is consistent with the greater regional variation seen in the time-series plot.
+
+These plots only describe contemporaneous association. They motivate a multivariate time-series approach, but they do not by themselves tell us which region moves first.
+
+## 2.5. AR Model for U.S. Gasoline
+
+```{r}
+# Difference log gasoline prices to work with an approximately stationary series
+d_us_gas <- diff(log(us_gas_ts))
+
+# Hold out the last 4 weeks for a simple forecast check
+forecast_horizon <- 4
+n_gas <- length(d_us_gas)
+
+train_d_us_gas <- window(d_us_gas, end = time(d_us_gas)[n_gas - forecast_horizon])
+test_d_us_gas <- window(d_us_gas, start = time(d_us_gas)[n_gas - forecast_horizon + 1])
+
+# Fit AR(2) model
+fit_ar2_gas <- arima(train_d_us_gas, order = c(2, 0, 0))
+summary(fit_ar2_gas)
+
+# Forecast the held-out period
+fc_ar2_gas <- forecast(fit_ar2_gas, h = forecast_horizon, level = 95)
+
+fc_mean_ts <- ts(
+  as.numeric(fc_ar2_gas$mean),
+  start = start(test_d_us_gas),
+  frequency = frequency(test_d_us_gas)
+)
+
+fc_lower_ts <- ts(
+  as.numeric(fc_ar2_gas$lower[, 1]),
+  start = start(test_d_us_gas),
+  frequency = frequency(test_d_us_gas)
+)
+
+fc_upper_ts <- ts(
+  as.numeric(fc_ar2_gas$upper[, 1]),
+  start = start(test_d_us_gas),
+  frequency = frequency(test_d_us_gas)
+)
+
+# Show recent history leading into the forecast origin
+weeks_of_history <- 20
+tail_start_time <- time(d_us_gas)[n_gas - forecast_horizon - weeks_of_history + 1]
+actual_tail_ts <- window(d_us_gas, start = tail_start_time)
+
+plot(
+  actual_tail_ts,
+  type = "l",
+  lwd = 2,
+  main = "AR(2) Forecast vs. Actual Near the Series End",
+  xlab = "Time",
+  ylab = "Differenced Log Gasoline",
+  ylim = range(c(actual_tail_ts, fc_mean_ts, fc_lower_ts, fc_upper_ts))
+)
+lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
+lines(fc_lower_ts, lty = 3, col = "blue")
+lines(fc_upper_ts, lty = 3, col = "blue")
+abline(v = time(test_d_us_gas)[1], lty = 2)
+legend(
+  "topleft",
+  legend = c("Actual", "Forecast", "95% interval", "Forecast origin"),
+  lty = c(1, 2, 3, 2),
+  lwd = c(2, 2, 1, 1),
+  bty = "n"
+)
+
+# Plot held-out actual values against forecasts
+plot(
+  test_d_us_gas,
+  type = "l",
+  lwd = 2,
+  main = "Actual vs. Forecast: AR(2), 4-Week Holdout",
+  xlab = "Time",
+  ylab = "Differenced Log Gasoline",
+  ylim = range(c(test_d_us_gas, fc_mean_ts, fc_lower_ts, fc_upper_ts))
+)
+lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
+lines(fc_lower_ts, lty = 3, col = "blue")
+lines(fc_upper_ts, lty = 3, col = "blue")
+legend(
+  "topleft",
+  legend = c("Actual", "Forecast", "95% interval"),
+  lty = c(1, 2, 3),
+  lwd = c(2, 2, 1),
+  bty = "n"
+)
+```
+
+The AR(2) fit suggests that gasoline price changes are driven mostly by very recent history. The lag 1 coefficient is 0.5395, while the lag 2 coefficient is only 0.0696, so most of the predictable signal comes from the previous week rather than two weeks back.
+
+The fitted mean is 0.0006, which is close to zero after differencing and logging. The residual lag 1 autocorrelation is -0.0049, so there is little obvious linear dependence left in the residuals.
+
+The forecast plots show the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly.
+
+## 3. Brent Crude Oil vs. U.S. Gasoline
+
+### (i) Convert to approximately stationary series
+
+```{r}
+# First differences of log prices
+d_us_gas_overlap <- diff(log(gas_ts_brent_overlap))
+d_brent <- diff(log(brent_ts))
+
+# Calendar dates corresponding to the differenced series
+gas_brent_diff_dates <- gas_brent_df$Date[-1]
+
+# Differenced log U.S. gasoline
+plot(
+  d_us_gas_overlap,
+  main = "Differenced Log U.S. Gasoline",
+  ylab = "Log difference",
+  xlab = "Time"
+)
+abline(h = 0, lty = 2, col = "gray50")
+
+par(mfrow = c(1, 2))
+acf(d_us_gas_overlap, lag.max = 20,
+  main = "ACF: Differenced Log U.S. Gasoline")
+
+pacf(d_us_gas_overlap, lag.max = 20, main = "PACF: Differenced Log U.S. Gasoline")
+par(mfrow = c(1, 1))
+
+# Differenced log Brent crude
+plot(
+  d_brent,
+  main = "Differenced Log Brent Crude",
+  ylab = "Log difference",
+  xlab = "Time"
+)
+abline(h = 0, lty = 2, col = "gray50")
+
+par(mfrow = c(1, 2))
+acf(d_brent, lag.max = 20, main = "ACF: Differenced Log Brent Crude")
+pacf(d_brent, lag.max = 20, main = "PACF: Differenced Log Brent Crude")
+par(mfrow = c(1, 1))
+```
+
+After differencing the log prices, both series fluctuate around a more stable mean and the autocorrelations decay much more quickly than in levels. The PACFs are dominated by the first few lags, which is consistent with using low-order dynamic models for the transformed series.
+
+### (ii) CCF and lagged regression
+
+```{r}
+# Negative lag means Brent leads gasoline
+ccf(
+  d_brent, d_us_gas_overlap,
+  lag.max = 12,
+  main = "CCF: Brent vs. U.S. Gasoline (Differenced Log Prices)"
+)
+```
+
+The cross-correlation function peaks at lag 0, which means gasoline and Brent often move strongly within the same week. There are also positive correlations at negative lags, especially around -1 to -3, which is consistent with Brent changes showing up in gasoline prices over the following weeks.
+
+```{r}
+# Build a lagged regression data set
+oil_gas_lag_df <- ts.intersect(
+  gas = d_us_gas_overlap,
+  brent_lag_1 = stats::lag(d_brent, -1),
+  brent_lag_2 = stats::lag(d_brent, -2),
+  brent_lag_3 = stats::lag(d_brent, -3),
+  dframe = TRUE
+)
+
+par(mfrow = c(1, 3))
+
+plot(
+  oil_gas_lag_df$brent_lag_1, oil_gas_lag_df$gas,
+  xlab = "Brent change 1 week earlier",
+  ylab = "Current gasoline change",
+  main = "Lag 1"
+)
+abline(lm(gas ~ brent_lag_1, data = oil_gas_lag_df), col = "red")
+
+plot(
+  oil_gas_lag_df$brent_lag_2, oil_gas_lag_df$gas,
+  xlab = "Brent change 2 weeks earlier",
+  ylab = "Current gasoline change",
+  main = "Lag 2"
+)
+abline(lm(gas ~ brent_lag_2, data = oil_gas_lag_df), col = "red")
+
+plot(
+  oil_gas_lag_df$brent_lag_3, oil_gas_lag_df$gas,
+  xlab = "Brent change 3 weeks earlier",
+  ylab = "Current gasoline change",
+  main = "Lag 3"
+)
+abline(lm(gas ~ brent_lag_3, data = oil_gas_lag_df), col = "red")
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# Regression using Brent lags 1 to 3
+fit_oil_lag_lm <- lm(
+  gas ~ brent_lag_1 + brent_lag_2 + brent_lag_3,
+  data = oil_gas_lag_df
+)
+
+summary(fit_oil_lag_lm)
+```
+
+The lagged scatterplots support the CCF results. The association is strongest at a one-week lag, then becomes weaker at two and three weeks. In practical terms, this suggests that gasoline prices do not adjust all at once; some of the crude oil effect appears to pass through with a short delay.
+
+### (iii) VAR(2) model
+
+```{r}
+# Bivariate stationary series for VAR analysis
+oil_var_ts <- cbind(
+  Gasoline = d_us_gas_overlap,
+  Brent = d_brent
+)
+
+# Candidate lag lengths
+VARselect(oil_var_ts, lag.max = 8, type = "none")
+```
+
+```{r}
+# Fit the working VAR(2) model
+fit_var_oil <- VAR(oil_var_ts, p = 2, type = "none")
+summary(fit_var_oil)
+```
+
+We use a VAR(2) as a simple low-order model for the transformed gasoline and Brent series. This specification is consistent with the short-memory pattern in the ACF, PACF, and CCF plots and gives a direct way to estimate whether each series helps predict the other.
+
+### (iv) Diagnostics
+
+```{r}
+# Fitted values and residuals
+fitted_oil <- fitted(fit_var_oil)
+resid_oil  <- resid(fit_var_oil)
+```
+
+```{r}
+# Observed and fitted gasoline changes
+obs_gas_oil <- window(oil_var_ts[, "Gasoline"], start = time(oil_var_ts)[3])
+fit_gas_oil <- ts(
+  fitted_oil[, "Gasoline"],
+  start = start(obs_gas_oil),
+  frequency = frequency(obs_gas_oil)
+)
+
+plot(
+  obs_gas_oil, type = "l", col = "black",
+  main = "Observed vs. Fitted: Gasoline",
+  ylab = "Differenced Log Gasoline",
+  xlab = "Time"
+)
+lines(fit_gas_oil, col = "red")
+legend(
+  "topright",
+  legend = c("Observed", "Fitted"),
+  col = c("black", "red"),
+  lwd = 1,
+  bty = "n"
+)
+```
+
+```{r}
+plot(
+  obs_gas_oil, fit_gas_oil,
+  pch = 16,
+  xlab = "Observed",
+  ylab = "Fitted",
+  main = "Observed vs. Fitted: Gasoline"
+)
+legend(
+  "topleft",
+  legend = paste("Correlation:", round(cor(obs_gas_oil, fit_gas_oil), 3)),
+  bty = "n"
+)
+abline(0, 1, col = "red", lwd = 2)
+```
+
+```{r}
+# Largest absolute residuals for gasoline
+resid_gas_oil <- resid_oil[, "Gasoline"]
+oil_resid_time <- time(oil_var_ts)[-c(1, 2)]
+
+top_resid_gas_idx <- order(abs(resid_gas_oil), decreasing = TRUE)[1:10]
+top_resid_gas_dates <- oil_resid_time[top_resid_gas_idx] |>
+  date_decimal() |>
+  as.Date()
+
+tibble(
+  Date = top_resid_gas_dates,
+  Gasoline_Residual = resid_gas_oil[top_resid_gas_idx]
+)
+```
+
+```{r}
+# Largest absolute residuals for Brent
+resid_brent_oil <- resid_oil[, "Brent"]
+
+top_resid_brent_idx <- order(abs(resid_brent_oil), decreasing = TRUE)[1:10]
+top_resid_brent_dates <- oil_resid_time[top_resid_brent_idx] |>
+  date_decimal() |>
+  as.Date()
+
+tibble(
+  Date = top_resid_brent_dates,
+  Brent_Residual = resid_brent_oil[top_resid_brent_idx]
+)
+```
+
+```{r}
+# Observed and fitted Brent changes
+obs_brent_oil <- window(oil_var_ts[, "Brent"], start = time(oil_var_ts)[3])
+fit_brent_oil <- ts(
+  fitted_oil[, "Brent"],
+  start = start(obs_brent_oil),
+  frequency = frequency(obs_brent_oil)
+)
+
+plot(
+  obs_brent_oil, type = "l", col = "black",
+  main = "Observed vs. Fitted: Brent",
+  ylab = "Differenced Log Brent",
+  xlab = "Time"
+)
+lines(fit_brent_oil, col = "red")
+legend(
+  "topright",
+  legend = c("Observed", "Fitted"),
+  col = c("black", "red"),
+  lwd = 1,
+  bty = "n"
+)
+```
+
+```{r}
+plot(
+  obs_brent_oil, fit_brent_oil,
+  pch = 16,
+  xlab = "Observed",
+  ylab = "Fitted",
+  main = "Observed vs. Fitted: Brent"
+)
+legend(
+  "topleft",
+  legend = paste("Correlation:", round(cor(obs_brent_oil, fit_brent_oil), 3)),
+  bty = "n"
+)
+abline(0, 1, col = "red", lwd = 2)
+```
+
+```{r, fig.width = 8, fig.height = 6}
+# Residual series
+resid_gas_ts <- ts(
+  resid_oil[, "Gasoline"],
+  start = time(oil_var_ts)[3],
+  frequency = frequency(oil_var_ts)
+)
+
+resid_brent_ts <- ts(
+  resid_oil[, "Brent"],
+  start = time(oil_var_ts)[3],
+  frequency = frequency(oil_var_ts)
+)
+
+par(mfrow = c(2, 2))
+
+plot(resid_gas_ts, type = "l", main = "Residuals: Gasoline", ylab = "", xlab = "Time")
+abline(h = 0, lty = 2, col = "gray")
+acf(resid_oil[, "Gasoline"], main = "ACF: Gasoline Residuals")
+
+plot(resid_brent_ts, type = "l", main = "Residuals: Brent", ylab = "", xlab = "Time")
+abline(h = 0, lty = 2, col = "gray")
+acf(resid_oil[, "Brent"], main = "ACF: Brent Residuals")
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+# Residual cross-correlation
+par(mfrow = c(1, 2))
+
+ccf(resid_oil[, "Gasoline"], resid_oil[, "Brent"],
+    main = "CCF: Gasoline and Brent Residuals")
+
+ccf(resid_oil[, "Brent"], resid_oil[, "Gasoline"],
+    main = "CCF: Brent and Gasoline Residuals")
+
+par(mfrow = c(1, 1))
+```
+
+```{r, fig.width = 5, fig.height = 3}
+# Normal Q-Q plots
+par(mfrow = c(1, 2))
+
+qqnorm(resid_oil[, "Gasoline"], main = "Normal Q-Q Plot: Gasoline Residuals")
+qqline(resid_oil[, "Gasoline"])
+
+qqnorm(resid_oil[, "Brent"], main = "Normal Q-Q Plot: Brent Residuals")
+qqline(resid_oil[, "Brent"])
+
+par(mfrow = c(1, 1))
+```
+
+Overall, the VAR(2) captures the broad short-run dependence reasonably well, especially for gasoline. The fitted-versus-observed plots show that the model tracks the center of the series, but it still misses the largest shocks, which is what we would expect from a low-order linear model fit to differenced prices.
+
+The residual series fluctuate around zero and the residual ACFs show little remaining serial structure. The main departures appear in the tails of the Q-Q plots, especially for Brent, which suggests that unusual market weeks are still harder to explain than ordinary weeks.
+
+### (v) Granger causality
+
+```{r}
+causality(fit_var_oil, cause = "Brent")
+causality(fit_var_oil, cause = "Gasoline")
+```
+
+The Granger tests are best interpreted as predictive tests, not as proof of structural causation. In this context, bidirectional significance would mean that each series contains useful lagged information about the other, while a stronger Brent-to-gasoline result would still be more consistent with the economic story that crude oil price movements pass through into retail gasoline prices.
+
+### (vi) 4-week holdout forecast
+
+```{r, fig.width = 5, fig.height = 3}
+# Hold out the last 4 weeks
+forecast_horizon <- 4
+
+oil_train_ts <- oil_var_ts[1:(nrow(oil_var_ts) - forecast_horizon), ]
+oil_test_ts  <- oil_var_ts[(nrow(oil_var_ts) - forecast_horizon + 1):nrow(oil_var_ts), ]
+
+oil_train_dates <- gas_brent_diff_dates[1:(length(gas_brent_diff_dates) - forecast_horizon)]
+oil_test_dates  <- gas_brent_diff_dates[(length(gas_brent_diff_dates) - forecast_horizon + 1):length(gas_brent_diff_dates)]
+
+fit_var_oil_train <- VAR(oil_train_ts, p = 2, type = "none")
+oil_forecast <- predict(fit_var_oil_train, n.ahead = forecast_horizon, ci = 0.95)
+
+series_names <- c("Gasoline", "Brent")
+series_titles <- c(
+  "Gasoline: Actual vs. Forecast (4-Week Test Set)",
+  "Brent: Actual vs. Forecast (4-Week Test Set)"
+)
+
+for (i in seq_along(series_names)) {
+  series_name <- series_names[i]
+
+  y_train <- oil_train_ts[, series_name]
+  y_test  <- oil_test_ts[, series_name]
+  fc_df   <- as.data.frame(oil_forecast$fcst[[series_name]])
+
+  plot_start_idx <- max(1, length(oil_train_dates) - 26 + 1)
+  recent_dates <- oil_train_dates[plot_start_idx:length(oil_train_dates)]
+  recent_train_values <- y_train[plot_start_idx:length(y_train)]
+
+  plot(
+    x = recent_dates,
+    y = recent_train_values,
+    type = "l",
+    xlim = c(min(recent_dates), max(oil_test_dates)),
+    ylim = range(c(y_train, y_test, fc_df$fcst, fc_df$lower, fc_df$upper), na.rm = TRUE),
+    xlab = "Time",
+    ylab = "",
+    main = series_titles[i],
+    xaxt = "n"
+  )
+
+  tick_pos <- seq(from = min(recent_dates), to = max(oil_test_dates), by = "1 month")
+  axis(1, at = tick_pos, labels = format(tick_pos, "%m-%Y"))
+
+  abline(v = tail(oil_train_dates, 1), lty = 2, col = "gray")
+
+  lines(
+    x = c(tail(oil_train_dates, 1), oil_test_dates),
+    y = c(tail(y_train, 1), y_test),
+    col = "black",
+    lwd = 2
+  )
+
+  lines(
+    x = c(tail(oil_train_dates, 1), oil_test_dates),
+    y = c(tail(y_train, 1), fc_df$fcst),
+    col = "blue",
+    lty = 2,
+    lwd = 2
+  )
+
+  lines(
+    x = c(tail(oil_train_dates, 1), oil_test_dates),
+    y = c(tail(y_train, 1), fc_df$lower),
+    col = "red",
+    lty = 3
+  )
+
+  lines(
+    x = c(tail(oil_train_dates, 1), oil_test_dates),
+    y = c(tail(y_train, 1), fc_df$upper),
+    col = "red",
+    lty = 3
+  )
+
+  legend(
+    "topleft",
+    legend = c("Train", "Actual test", "Forecast", "95% interval"),
+    col = c("black", "black", "blue", "red"),
+    lty = c(1, 1, 2, 3),
+    lwd = c(1, 2, 2, 1),
+    bty = "n"
+  )
+}
+```
+
+The 4-week holdout forecast shows that the bivariate VAR is still too smooth to capture the sharp spike at the end of the sample. Relative to the univariate AR model, it uses more information, but it still behaves like a short-memory model for differenced prices and therefore pulls quickly back toward zero.
+
+That result matters for interpretation. The oil-gasoline link is useful for understanding dependence and pass-through, but it does not automatically produce strong short-horizon forecasts during abrupt market shifts. Forecast accuracy would likely improve only with additional information on broader market shocks, refining conditions, or policy disruptions.
+
+## 4. Regional U.S. Gasoline Comparison
+
+### (i) Convert regional series to approximately stationary form
+
+```{r, fig.width = 5, fig.height = 3}
+# First differences of log prices for all five regions
+d_regions <- diff(log(region_var_ts))
+colnames(d_regions) <- colnames(region_var_ts)
+
+region_diff_dates <- gas_df$Date[-1]
+
+for (series_name in colnames(d_regions)) {
+  plot(d_regions[, series_name],
+       main = paste("Differenced Log", gsub("_", " ", series_name)),
+       ylab = "Log difference",
+       xlab = "Time")
+  abline(h = 0, lty = 2, col = "gray50")
+
+  par(mfrow = c(1, 2))
+  acf(d_regions[, series_name],
+      lag.max = 20,
+      main = paste("ACF:", gsub("_", " ", series_name)))
+  pacf(d_regions[, series_name],
+       lag.max = 20,
+       main = paste("PACF:", gsub("_", " ", series_name)))
+  par(mfrow = c(1, 1))
+}
+```
+
+The transformed regional series appear much closer to stationarity than the level series. After differencing and logging, each series fluctuates around zero, the ACFs decay quickly, and there is no strong visual evidence of a remaining trend.
+
+### (ii) CCFs for regional lead-lag patterns
+
+```{r, fig.height = 12, fig.width = 10}
+# Pairwise CCFs for all 10 regional pairs
+region_pairs <- combn(colnames(d_regions), 2, simplify = FALSE)
+
+# Show Midwest pairs first because they are especially informative in the plots
+region_pairs <- c(
+  Filter(function(x) "Midwest" %in% x, region_pairs),
+  Filter(function(x) !("Midwest" %in% x), region_pairs)
+)
+
+region_pairs <- lapply(region_pairs, function(pair) {
+  if ("Midwest" %in% pair) {
+    c("Midwest", setdiff(pair, "Midwest"))
+  } else {
+    pair
+  }
+})
+
+par(mfrow = c(5, 2))
+
+for (pair in region_pairs) {
+  ccf(d_regions[, pair[1]],
+      d_regions[, pair[2]],
+      lag.max = 12,
+      main = paste(gsub("_", " ", pair[1]), "vs.", gsub("_", " ", pair[2])))
+}
+
+par(mfrow = c(1, 1))
+```
+
+Most regional pairs have their largest spike at lag 0, which indicates strong shared same-week movement. The Midwest comparisons also show some asymmetry at nearby negative lags, which is consistent with the Midwest sometimes moving slightly earlier than other regions, although the dominant pattern is still contemporaneous co-movement.
+
+### (iii) VAR(1) model
+
+```{r}
+region_model_ts <- d_regions
+
+# Candidate lag lengths
+VARselect(region_model_ts, lag.max = 8, type = "const")
+```
+
+```{r}
+# Fit the working regional VAR(1)
+fit_var_regions <- VAR(region_model_ts, p = 1, type = "const")
+summary(fit_var_regions)
+roots(fit_var_regions)
+```
+
+We use a VAR(1) with an intercept as a parsimonious model for the five transformed regional series. The model is stable if all inverse roots lie inside the unit circle, and this specification is consistent with the short-memory behavior seen in the univariate ACFs.
+
+In the fitted equations, the main pattern is that regions do help predict one another, but the strength of the relationships differs across the system. The West Coast and Rocky Mountain series tend to show more distinct regional behavior, while the East Coast, Midwest, and Gulf Coast appear more tightly linked.
+
+### (iv) Diagnostics
+
+```{r}
+# Fitted values and residuals
+fitted_regions <- fitted(fit_var_regions)
+resid_regions  <- resid(fit_var_regions)
+p_used <- fit_var_regions$p
+```
+
+```{r, fig.width = 10, fig.height = 5}
+# Observed vs. fitted plots for each region
+for (series_name in colnames(region_model_ts)) {
+  obs_ts <- window(region_model_ts[, series_name], start = time(region_model_ts)[p_used + 1])
+  fit_ts <- ts(fitted_regions[, series_name],
+               start = start(obs_ts),
+               frequency = frequency(obs_ts))
+
+  par(mfrow = c(1, 2))
+
+  plot(obs_ts, type = "l", col = "black",
+       main = paste("Observed vs. Fitted:", gsub("_", " ", series_name)),
+       ylab = "",
+       xlab = "Time")
+  lines(fit_ts, col = "red")
+
+  plot(obs_ts, fit_ts,
+       pch = 16,
+       xlab = "Observed",
+       ylab = "Fitted",
+       main = gsub("_", " ", series_name))
+  abline(0, 1, col = "red", lwd = 2)
+  legend("topleft",
+         legend = paste("Correlation:", round(cor(obs_ts, fit_ts), 3)),
+         bty = "n")
+
+  par(mfrow = c(1, 1))
+}
+```
+
+The fitted values capture the center of the regional series reasonably well, but they do not capture abrupt shocks. This is especially noticeable for Rocky Mountain, where the fit appears less stable in earlier periods than in the other regions.
+
+```{r, fig.width = 8, fig.height = 4}
+# Residual series and ACFs
+for (series_name in colnames(resid_regions)) {
+  par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+
+  plot(ts(resid_regions[, series_name],
+          start = time(region_model_ts)[p_used + 1],
+          frequency = frequency(region_model_ts)),
+       type = "l",
+       main = paste("Residuals:", gsub("_", " ", series_name)),
+       ylab = "",
+       xlab = "Time",
+       ylim = c(-0.2, 0.2))
+  abline(h = 0, lty = 2, col = "gray")
+
+  acf(resid_regions[, series_name],
+      main = paste("ACF Residuals:", gsub("_", " ", series_name)))
+
+  par(mfrow = c(1, 1))
+}
+```
+
+For most regions, the residuals look close to white noise. Rocky Mountain again stands out somewhat, with mild remaining structure relative to the rest of the system.
+
+```{r, fig.width = 8, fig.height = 6}
+# Overlay residuals from all regional equations
+ts.plot(
+  ts(resid_regions[, 1], start = time(region_model_ts)[p_used + 1], frequency = frequency(region_model_ts)),
+  ts(resid_regions[, 2], start = time(region_model_ts)[p_used + 1], frequency = frequency(region_model_ts)),
+  ts(resid_regions[, 3], start = time(region_model_ts)[p_used + 1], frequency = frequency(region_model_ts)),
+  ts(resid_regions[, 4], start = time(region_model_ts)[p_used + 1], frequency = frequency(region_model_ts)),
+  ts(resid_regions[, 5], start = time(region_model_ts)[p_used + 1], frequency = frequency(region_model_ts)),
+  col = 1:5, lty = 1,
+  main = "Overlayed Regional Residuals",
+  xlab = "Year",
+  ylab = "Differenced Log Price"
+)
+legend(
+  "topleft",
+  legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+  col = 1:5, lty = 1, bty = "n"
+)
+```
+
+This overlay shows that large residuals tend to cluster during the same broad periods, which is consistent with system-wide shocks affecting several regions at once.
+
+```{r}
+# Weeks with the largest average and region-specific residuals
+region_resid_df <- data.frame(
+  time = time(region_model_ts)[-1],
+  avg_resid = rowMeans(resid_regions),
+  resid_regions
+)
+
+region_resid_df |>
+  dplyr::select(time, avg_resid) |>
+  arrange(desc(avg_resid)) |>
+  head(5) |>
+  arrange(time)
+
+region_resid_df |>
+  dplyr::select(time, East_Coast) |>
+  arrange(desc(East_Coast)) |>
+  head(5) |>
+  arrange(time)
+
+region_resid_df |>
+  dplyr::select(time, Midwest) |>
+  arrange(desc(Midwest)) |>
+  head(5) |>
+  arrange(time)
+
+region_resid_df |>
+  dplyr::select(time, Gulf_Coast) |>
+  arrange(desc(Gulf_Coast)) |>
+  head(5) |>
+  arrange(time)
+
+region_resid_df |>
+  dplyr::select(time, Rocky_Mountain) |>
+  arrange(desc(Rocky_Mountain)) |>
+  head(5) |>
+  arrange(time)
+
+region_resid_df |>
+  dplyr::select(time, West_Coast) |>
+  arrange(desc(West_Coast)) |>
+  head(5) |>
+  arrange(time)
+```
+
+The largest residual weeks overlap across several regions, which again suggests that the biggest misses are driven by common market shocks rather than by isolated local noise.
+
+```{r, fig.height = 12, fig.width = 10}
+# Residual CCFs for all regional pairs
+region_resid_pairs <- combn(colnames(resid_regions), 2, simplify = FALSE)
+
+region_resid_pairs <- c(
+  Filter(function(x) "Rocky_Mountain" %in% x, region_resid_pairs),
+  Filter(function(x) !("Rocky_Mountain" %in% x), region_resid_pairs)
+)
+
+region_resid_pairs <- lapply(region_resid_pairs, function(pair) {
+  if ("Rocky_Mountain" %in% pair) {
+    c("Rocky_Mountain", setdiff(pair, "Rocky_Mountain"))
+  } else {
+    pair
+  }
+})
+
+par(mfrow = c(5, 2))
+
+for (pair in region_resid_pairs) {
+  ccf(resid_regions[, pair[1]],
+      resid_regions[, pair[2]],
+      lag.max = 12,
+      main = paste("Residual CCF:",
+                   gsub("_", " ", pair[1]), "vs.", gsub("_", " ", pair[2])))
+}
+
+par(mfrow = c(1, 1))
+```
+
+For most pairs, the residual cross-correlations are concentrated at lag 0, which suggests the VAR(1) has removed most of the lagged dependence. Rocky Mountain still looks a bit less regular than the other regions, which is consistent with the earlier diagnostic plots.
+
+```{r, fig.width = 8, fig.height = 6}
+# Normal Q-Q plots
+par(mfrow = c(2, 3))
+
+for (series_name in colnames(resid_regions)) {
+  qqnorm(resid_regions[, series_name],
+         main = paste("Q-Q:", gsub("_", " ", series_name)))
+  qqline(resid_regions[, series_name])
+}
+
+par(mfrow = c(1, 1))
+```
+
+The Q-Q plots show heavier tails than a normal distribution, which is not surprising for weekly energy price changes. The main message is that the regional VAR captures ordinary week-to-week dynamics better than it captures large shock periods.
+
+### (v) Forecast
+
+```{r, fig.width = 5, fig.height = 3}
+# Hold out the last 4 weeks
+forecast_horizon <- 4
+
+region_train_ts <- region_model_ts[1:(nrow(region_model_ts) - forecast_horizon), ]
+region_test_ts  <- region_model_ts[(nrow(region_model_ts) - forecast_horizon + 1):nrow(region_model_ts), ]
+
+region_train_dates <- region_diff_dates[1:(length(region_diff_dates) - forecast_horizon)]
+region_test_dates  <- region_diff_dates[(length(region_diff_dates) - forecast_horizon + 1):length(region_diff_dates)]
+
+fit_var_regions_train <- VAR(region_train_ts, p = 1, type = "const")
+region_forecast <- predict(fit_var_regions_train, n.ahead = forecast_horizon, ci = 0.95)
+
+for (series_name in colnames(region_train_ts)) {
+  y_train <- region_train_ts[, series_name]
+  y_test  <- region_test_ts[, series_name]
+  fc_df   <- as.data.frame(region_forecast$fcst[[series_name]])
+
+  plot_start_idx <- max(1, length(region_train_dates) - 26 + 1)
+  recent_dates <- region_train_dates[plot_start_idx:length(region_train_dates)]
+  recent_train_values <- y_train[plot_start_idx:length(y_train)]
+
+  plot(
+    x = recent_dates,
+    y = recent_train_values,
+    type = "l",
+    xlim = c(min(recent_dates), max(region_test_dates)),
+    ylim = range(c(y_train, y_test, fc_df$fcst, fc_df$lower, fc_df$upper), na.rm = TRUE),
+    xlab = "Time",
+    ylab = "",
+    main = paste("Actual vs. Forecast:", gsub("_", " ", series_name), "(4-Week Test Set)"),
+    xaxt = "n"
+  )
+
+  tick_pos <- seq(from = min(recent_dates), to = max(region_test_dates), by = "1 month")
+  axis(1, at = tick_pos, labels = format(tick_pos, "%m-%Y"))
+
+  abline(v = tail(region_train_dates, 1), lty = 2, col = "gray")
+
+  lines(
+    x = c(tail(region_train_dates, 1), region_test_dates),
+    y = c(tail(y_train, 1), y_test),
+    col = "black",
+    lwd = 2
+  )
+
+  lines(
+    x = c(tail(region_train_dates, 1), region_test_dates),
+    y = c(tail(y_train, 1), fc_df$fcst),
+    col = "blue",
+    lty = 2,
+    lwd = 2
+  )
+
+  lines(
+    x = c(tail(region_train_dates, 1), region_test_dates),
+    y = c(tail(y_train, 1), fc_df$lower),
+    col = "red",
+    lty = 3
+  )
+
+  lines(
+    x = c(tail(region_train_dates, 1), region_test_dates),
+    y = c(tail(y_train, 1), fc_df$upper),
+    col = "red",
+    lty = 3
+  )
+
+  legend(
+    "topleft",
+    legend = c("Train", "Actual test", "Forecast", "95% interval"),
+    col = c("black", "black", "blue", "red"),
+    lty = c(1, 1, 2, 3),
+    lwd = c(1, 2, 2, 1),
+    bty = "n"
+  )
+}
+```
+
+Across regions, the 4-week forecasts again capture the average direction better than the exact week-to-week movements. Some regions, especially East Coast and West Coast, appear to show at least part of the short rise before dropping back, while others flatten out too quickly.
+
+This reinforces the same point seen earlier: the regional VAR is useful for describing dependence across markets, but it is still limited as a short-horizon forecasting tool when the system is hit by sudden shocks.
