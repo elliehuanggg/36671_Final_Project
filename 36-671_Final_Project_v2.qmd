@@ -102,7 +102,11 @@ gas_crude <- gas_complete |>
   inner_join(crude_data, by = "Date") |>
   drop_na()
 
-cat("Gas price-crude oil overlapping date range:", min(gas_crude$Date), "to", max(gas_crude$Date), "\n")
+cat(
+  "Gas price-crude oil overlapping date range:",
+  format(min(gas_crude$Date), "%Y-%m-%d"), "to",
+  format(max(gas_crude$Date), "%Y-%m-%d"), "\n"
+)
 cat("Observations:", nrow(gas_crude), "\n")
 
 # Shared start for weekly ts
@@ -178,6 +182,115 @@ The pairwise scatterplots indicate strong positive contemporaneous relationships
 
 This shows that the regions are clearly not independent; therefore it is reasonable to study them as a connected multivariate time series. Having established strong contemporaneous correlation, we can next investigate whether some regions tend to lead or lag others over time. This provides a natural motivation for using lag-based analysis and vector autoregressive models.
 
+## 2.5. Fit AR model to gas and forecast
+
+```{r}
+# --- AR(2) forecast for U.S. gasoline and comparison to actual ---
+
+# Stationary series: differenced log gasoline prices
+dGas <- diff(log(us_ts))
+
+# Hold out the last 4 weeks as test data
+n <- length(dGas)
+h <- 4
+
+train_dGas <- window(dGas, end = time(dGas)[n - h])
+test_dGas  <- window(dGas, start = time(dGas)[n - h + 1])
+
+# Fit AR(2) on training data
+fit_ar2 <- arima(train_dGas, order = c(2, 0, 0))
+
+summary(fit_ar2)
+
+# 4-week forecast
+# Forecast mean and intervals as ts aligned to test period
+fc_mean_ts  <- ts(as.numeric(fc_ar2$mean),
+                  start = start(test_dGas),
+                  frequency = frequency(test_dGas))
+
+fc_lower_ts <- ts(as.numeric(fc_ar2$lower[,2]),
+                  start = start(test_dGas),
+                  frequency = frequency(test_dGas))
+
+fc_upper_ts <- ts(as.numeric(fc_ar2$upper[,2]),
+                  start = start(test_dGas),
+                  frequency = frequency(test_dGas))
+
+# Choose how much history to show before forecast
+k <- 20   # last 20 weeks before forecast
+
+tail_start <- time(dGas)[n - h - k + 1]
+
+# Windowed actual series near the tail
+actual_tail <- window(dGas, start = tail_start)
+
+# Plot tail window
+plot(actual_tail,
+     type = "l",
+     lwd = 2,
+     main = "AR(2) Forecast vs Actual Near Series End",
+     xlab = "Time",
+     ylab = "Differenced Log Gasoline",
+     ylim = range(c(actual_tail, fc_mean_ts, fc_lower_ts, fc_upper_ts)))
+
+# Add forecast and intervals
+lines(fc_mean_ts, lwd = 2, lty = 2)
+lines(fc_lower_ts, lty = 3)
+lines(fc_upper_ts, lty = 3)
+
+# Mark forecast origin
+abline(v = time(test_dGas)[1], lty = 2)
+
+legend("topleft",
+       legend = c("Actual", "Forecast", "95% Interval", "Forecast Origin"),
+       lty = c(1, 2, 3, 2),
+       lwd = c(2, 2, 1, 1),
+       bty = "n")
+
+# -----------------------------
+# Compare forecast to actual
+# -----------------------------
+
+# Forecast mean as ts aligned to the test period
+fc_mean_ts <- ts(as.numeric(fc_ar2$mean),
+                 start = start(test_dGas),
+                 frequency = frequency(test_dGas))
+
+# Plot actual vs forecast
+plot(test_dGas,
+     type = "l",
+     lwd = 2,
+     main = "Actual vs Forecast: AR(2), 4-Week Holdout",
+     xlab = "Time",
+     ylab = "Differenced Log Gasoline",
+     ylim = range(c(test_dGas,
+                    fc_mean_ts,
+                    fc_ar2$lower[,2],
+                    fc_ar2$upper[,2])))
+
+lines(fc_mean_ts, lwd = 2, lty = 2)
+lines(ts(fc_ar2$lower[,2], start = start(test_dGas), frequency = frequency(test_dGas)),
+      lty = 3)
+lines(ts(fc_ar2$upper[,2], start = start(test_dGas), frequency = frequency(test_dGas)),
+      lty = 3)
+
+legend("topleft",
+       legend = c("Actual", "Forecast", "95% Interval"),
+       lty = c(1, 2, 3),
+       lwd = c(2, 2, 1),
+       bty = "n")
+```
+
+The AR(2) model shows that gasoline price changes are driven mainly by very recent movements. The lag 1 coefficient is 0.5395, indicating substantial short-term persistence, while the lag 2 coefficient is only 0.0696, suggesting a much weaker contribution from two weeks earlier. The estimated mean is 0.0006, so the transformed series remains centered near zero. The residual diagnostics indicate that the AR(2) model captures the time dependence well, with residual lag 1 autocorrelation of -0.0049, implying essentially no remaining autocorrelation.
+
+To evaluate how well gasoline prices can be predicted using their own past behavior, we fit an AR(2) model to the differenced log U.S. gasoline price series and generated 4-week-ahead forecasts using data up to March 23, 2026. This setup reflects a realistic forecasting scenario where only information available up to the forecast origin is used.
+
+The plot above compares the 4-week forecasts to the observed values. The AR(2) model produces forecasts that are relatively smooth and centered near zero, reflecting the weak autocorrelation structure of the differenced series. In contrast, the actual data exhibits a sharp positive spike just prior to the forecast period, followed by elevated and then declining values.
+
+The model fails to anticipate this sudden movement and instead quickly reverts toward the mean. Although the observed values fall within the forecast intervals, the point forecasts do not capture the magnitude or direction of the change. This behavior highlights a key limitation of the AR model: it relies solely on past values of the series and therefore cannot account for unexpected external shocks.
+
+Overall, while the AR(2) model captures short-term persistence in gasoline price changes, its forecasting performance is limited, particularly during periods of rapid market movement. This suggests that additional information, such as crude oil prices, is necessary to improve predictive performance.
+
 ## 3. Crude Oil Prices vs US Gasoline Price Analyses
 
 ### (i) Converting to Stationary Series
@@ -188,6 +301,9 @@ Both crude oil and gasoline prices exhibit strong trends over time, so we first 
 # Log difference 
 dGas <- diff(log(gas_ts_crude))
 dBrent <- diff(log(crude_ts))
+
+# Actual dates corresponding to the differenced series
+oil_dates <- gas_crude$Date[-1]
 
 #par(mfrow = c(3,2))
 plot(dGas, main = "Differenced Log U.S. Gasoline")
@@ -456,347 +572,92 @@ causality(fit_var_oil, cause = "Gasoline")
 The Granger causality tests indicate bidirectional predictive relationships between crude oil and gasoline prices. However, the predictive effect from oil to gasoline is substantially stronger than the reverse. This suggests that crude oil prices are the primary driver of gasoline price changes, while the predictive power of gasoline for oil likely reflects common shocks and market comovement rather than a strong causal effect.
 
 ### (vi) Forecast?
-Don't know how to get 95% CI for fanchart
-
-Plotted forecast using regular plot, fanchart, and ggplot; didn't know which style we want
 
 ```{r}
-# pred_var_oil = predict(fit_var_oil, n.ahead = 24, ci = 0.95)
-# plot(pred_var_oil)
-# forecast(fit_var_oil, h = 24) |>
-#   autoplot() + xlim(c(2020, 2027))
-# fanchart(pred_var_oil, xlim = c(1500,1800))
-```
+# hold out last 4 weeks as test set
+h <- 4
 
-```{r}
-# 1 week
-pred_var_oil_1 = predict(fit_var_oil, n.ahead = 1, ci = 0.95)
-fc_oil_1 <- forecast(fit_var_oil, h = 1, level = 95)
+# split the data
+x_train <- x_oil[1:(nrow(x_oil) - h), ]
+x_test  <- x_oil[(nrow(x_oil) - h + 1):nrow(x_oil), ]
 
-# GAS
-plot(pred_var_oil_1, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_1, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_1$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
+# split the true dates
+train_dates <- oil_dates[1:(length(oil_dates) - h)]
+test_dates  <- oil_dates[(length(oil_dates) - h + 1):length(oil_dates)]
 
-# BRENT
-plot(pred_var_oil_1, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_1, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_1$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-```
+# fit VAR on training data only
+fit_var_oil_train <- VAR(x_train, p = 2, type = "none")
 
-```{r}
-# 4 weeks
-forecasted <- predict(fit_var_oil, n.ahead = 4, ci = 0.95)
+# forecast next 4 steps
+forecasted <- predict(fit_var_oil_train, n.ahead = h, ci = 0.95)
 
 series_names <- c("Gasoline", "Brent")
-titles <- c("Forecast for Gasoline (4 weeks)", "Forecast for Brent (4 weeks)")
+titles <- c("Gasoline: Actual vs Forecast (4-week test set)",
+            "Brent: Actual vs Forecast (4-week test set)")
 
 for (i in 1:2) {
   name <- series_names[i]
   
-  y_hist_full <- x_oil[, name]
-  y_hist <- window(y_hist_full, start = 2025)
-  t_hist_num <- as.numeric(time(y_hist))
-  
+  y_train <- x_train[, name]
+  y_test  <- x_test[, name]
   df <- as.data.frame(forecasted$fcst[[name]])
-  t_fc <- tail(as.numeric(time(y_hist_full)), 1) + (1:4) / frequency(y_hist_full)
   
-  # zoom in so the forecast is easier to see
-  plot_start <- tail(t_hist_num, 26)[1]   # last ~26 weeks
+  # show the last ~26 weeks of training history
+  plot_start_idx <- max(1, length(train_dates) - 26 + 1)
+  plot_dates <- train_dates[plot_start_idx:length(train_dates)]
+  plot_y <- y_train[plot_start_idx:length(y_train)]
   
-  plot(y = y_hist,
-       x = t_hist_num,
+  plot(x = plot_dates,
+       y = plot_y,
        type = "l",
-       xlim = c(plot_start, max(t_fc)),
-       ylim = range(c(y_hist, df$fcst, df$lower, df$upper), na.rm = TRUE),
+       xlim = c(min(plot_dates), max(test_dates)),
+       ylim = range(c(y_train, y_test, df$fcst, df$lower, df$upper), na.rm = TRUE),
        xlab = "Time",
        ylab = "",
        main = titles[i],
        xaxt = "n")
   
-  tick_pos <- pretty(c(plot_start, max(t_fc)), n = 6)
-  axis(1,
-       at = tick_pos,
-       labels = format(
-         as.Date((tick_pos - 1970) * 365.25, origin = "1970-01-01"),
-         "%m-%Y"
-       ))
+  tick_pos <- seq(from = min(plot_dates), to = max(test_dates), by = "1 month")
+  axis(1, at = tick_pos, labels = format(tick_pos, "%m-%Y"))
   
-  abline(v = tail(as.numeric(time(y_hist_full)), 1), lty = 2, col = "gray")
+  # split between training and test
+  abline(v = tail(train_dates, 1), lty = 2, col = "gray")
   
-  # connect forecast lines to the last observed point
-  last_t <- tail(t_hist_num, 1)
-  last_y <- tail(y_hist, 1)
+  # actual held-out test values
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), y_test),
+        col = "black", lwd = 2)
   
-  lines(x = c(last_t, t_fc),
-        y = c(last_y, df$fcst),
-        col = "blue", lty = 2)
+  # forecasted values
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), df$fcst),
+        col = "blue", lty = 2, lwd = 2)
   
-  lines(x = c(last_t, t_fc),
-        y = c(last_y, df$lower),
+  # 95% prediction interval
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), df$lower),
         col = "red", lty = 3)
   
-  lines(x = c(last_t, t_fc),
-        y = c(last_y, df$upper),
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), df$upper),
         col = "red", lty = 3)
+  
+  legend("topleft",
+         legend = c("Train", "Actual test", "Forecast", "95% interval"),
+         col = c("black", "black", "blue", "red"),
+         lty = c(1, 1, 2, 3),
+         lwd = c(1, 2, 2, 1),
+         bty = "n")
 }
 ```
 
+Show 4-week-ahead forecasts from the VAR model for gasoline and Brent crude oil compared to observed values over a recent holdout period. The forecasts for both series are relatively smooth and remain close to zero, indicating that the model captures the general mean-reverting behavior of the differenced log series.
 
-```{r}
-# 12 weeks
-pred_var_oil_12 = predict(fit_var_oil, n.ahead = 12, ci = 0.95)
-fc_oil_12 <- forecast(fit_var_oil, h = 12, level = 95)
+However, both gasoline and crude oil exhibit a sharp positive spike at the start of the test period that the VAR model does not anticipate. The forecasts fail to capture both the timing and magnitude of this movement, instead reverting quickly toward the mean. Although the observed values fall within the 95% forecast intervals, the point forecasts substantially underestimate the volatility and miss the sudden shift in dynamics.
 
-# GAS
-plot(pred_var_oil_12, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-fanchart(pred_var_oil_12, names = "Gasoline", 
-         main = "Forecast for Gasoline",
-         xlim = c(1500,1800))
-autoplot(fc_oil_12$forecast$Gasoline) +
-  ggtitle("Forecast for Gasoline") +
-  xlim(c(2020, 2027)) +
-  theme_minimal()
+This highlights an important limitation: even though the VAR model incorporates cross-series relationships between gasoline and crude oil, it still relies on past values of the system and cannot predict unexpected external shocks. As a result, its forecasting performance deteriorates during periods of abrupt market changes.
 
-# BRENT
-plot(pred_var_oil_12, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-fanchart(pred_var_oil_12, names = "Brent", 
-         main = "Forecast for Brent",
-         xlim = c(1500,1800))
-autoplot(fc_oil_12$forecast$Brent) +
-  ggtitle("Forecast for Brent") +
-  xlim(c(2020, 2027)) +
-  theme_minimal()
-```
-
-```{r}
-# 13 weeks (Quarter of a year)
-pred_var_oil_13 = predict(fit_var_oil, n.ahead = 13, ci = 0.95)
-fc_oil_13 <- forecast(fit_var_oil, h = 13, level = 95)
-
-# GAS
-plot(pred_var_oil_13, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_13, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_13$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_13, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_13, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_13$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-```
-
-```{r}
-# 24 weeks
-pred_var_oil_24 = predict(fit_var_oil, n.ahead = 24, ci = 0.95)
-fc_oil_24 <- forecast(fit_var_oil, h = 24, level = 95)
-
-# GAS
-plot(pred_var_oil_24, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_24, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_24$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_24, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_24, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_24$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-```
-
-```{r}
-# 26 weeks (Half a year)
-pred_var_oil_26 = predict(fit_var_oil, n.ahead = 26, ci = 0.95)
-fc_oil_26 <- forecast(fit_var_oil, h = 26, level = 95)
-
-# GAS
-plot(pred_var_oil_26, names = "Gasoline",
-     main = "Forecast for Gasoline (6 months)",
-     xlim = c(1700,1750))
-# fanchart(pred_var_oil_26, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_26$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_26, names = "Brent",
-     main = "Forecast for Brent (6 months)",
-     xlim = c(1700,1750))
-# fanchart(pred_var_oil_26, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_26$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2027)) +
-#   theme_minimal()
-```
-
-```{r}
-# 36 weeks
-pred_var_oil_36 = predict(fit_var_oil, n.ahead = 36, ci = 0.95)
-fc_oil_36 <- forecast(fit_var_oil, h = 36, level = 95)
-
-# GAS
-plot(pred_var_oil_36, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_36, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_36$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_36, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_36, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_36$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-```
-
-```{r}
-# 39 weeks (3/4 of a year)
-pred_var_oil_39 = predict(fit_var_oil, n.ahead = 39, ci = 0.95)
-fc_oil_39 <- forecast(fit_var_oil, h = 39, level = 95)
-
-# GAS
-plot(pred_var_oil_39, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_39, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_39$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_39, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_39, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_39$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-```
-
-```{r}
-# 48 weeks
-pred_var_oil_48 = predict(fit_var_oil, n.ahead = 48, ci = 0.95)
-fc_oil_48 <- forecast(fit_var_oil, h = 48, level = 95)
-
-# GAS
-plot(pred_var_oil_48, names = "Gasoline",
-     main = "Forecast for Gasoline",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_48, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_48$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_48, names = "Brent",
-     main = "Forecast for Brent",
-     xlim = c(1500,1800))
-# fanchart(pred_var_oil_48, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_48$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-```
-
-```{r}
-# 52 weeks (A year)
-pred_var_oil_52 = predict(fit_var_oil, n.ahead = 52, ci = 0.95)
-fc_oil_52 <- forecast(fit_var_oil, h = 52, level = 95)
-
-# GAS
-plot(pred_var_oil_52, names = "Gasoline",
-     main = "Forecast for Gasoline (1 year)",
-     xlim = c(1600,1800))
-# fanchart(pred_var_oil_52, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_52$forecast$Gasoline) +
-#   ggtitle("Forecast for Gasoline") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-
-# BRENT
-plot(pred_var_oil_52, names = "Brent",
-     main = "Forecast for Brent (1 year)",
-     xlim = c(1600,1800))
-# fanchart(pred_var_oil_52, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-# autoplot(fc_oil_52$forecast$Brent) +
-#   ggtitle("Forecast for Brent") +
-#   xlim(c(2020, 2028)) +
-#   theme_minimal()
-```
-
+need external information
 
 ##### Question: how long do we want to forecast?
 
@@ -808,6 +669,8 @@ plot(pred_var_oil_52, names = "Brent",
 # First-difference the log prices for all 5 regions
 dRegions <- diff(log(regions_ts))
 colnames(dRegions) <- colnames(regions_ts)
+
+region_dates <- gas_complete$Date[-1]
 
 for (nm in colnames(dRegions)) {
   plot(dRegions[, nm],
@@ -1089,315 +952,78 @@ Heavy tailed expected - maybe look into outliers? deviation from qq-line is like
 Granger causality does not make sense for regional pairs, and any lags between regions can be determined by CCF and VAR coefficients.
 
 ### (vi) Forecast
-Don't know how to get 95% CI for fanchart
-
-Plotted forecast using regular plot, fanchart, and ggplot; didn't know which style we want
 
 ```{r}
-# 1 week
-pred_regions_1 <- predict(fit_var_regions, n.ahead = 1, ci = 0.95)
+# 4 weeks held-out test for regional VAR
+h <- 4
 
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_1, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
+# split data into train/test
+x_regions_train <- x_regions[1:(nrow(x_regions) - h), ]
+x_regions_test  <- x_regions[(nrow(x_regions) - h + 1):nrow(x_regions), ]
 
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_1, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_1 <- forecast(fit_var_regions, h = 1, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_1$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2027)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
+# split true dates
+train_dates <- region_dates[1:(length(region_dates) - h)]
+test_dates  <- region_dates[(length(region_dates) - h + 1):length(region_dates)]
 
-```{r}
-# 4 weeks (One month)
-pred_regions_4 <- predict(fit_var_regions, n.ahead = 4, ci = 0.95)
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_4, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm), " (4 weeks)"),
-       xlim = c(1700,1750))
-}
+# fit VAR on training only
+fit_var_regions_train <- VAR(x_regions_train, p = 1, type = "none")
 
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_4, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-fc_regions_4 <- forecast(fit_var_regions, h = 4, level = 95)
-for (nm in colnames(x_regions)) {
-  p <- autoplot(fc_regions_4$forecast[[nm]]) +
-       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-       xlim(c(2020, 2027)) +
-       theme_minimal()
-  print(p)
-}
-```
+# forecast next 4 weeks
+forecasted_regions <- predict(fit_var_regions_train, n.ahead = h, ci = 0.95)
 
-```{r}
-# 12 weeks
-pred_regions_12 <- predict(fit_var_regions, n.ahead = 12, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_12, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-for (nm in colnames(x_regions)) {
-  fanchart(pred_regions_12, 
-           names = nm, 
-           main = paste("Forecast for", gsub("_", " ", nm)),
-           xlim = c(1500,1800))
-}
-
-fc_regions_12 <- forecast(fit_var_regions, h = 12, level = 95)
-for (nm in colnames(x_regions)) {
-  p <- autoplot(fc_regions_12$forecast[[nm]]) +
-       ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-       xlim(c(2020, 2027)) +
-       theme_minimal()
-  print(p)
+for (nm in colnames(x_regions_train)) {
+  
+  y_train <- x_regions_train[, nm]
+  y_test  <- x_regions_test[, nm]
+  df <- as.data.frame(forecasted_regions$fcst[[nm]])
+  
+  # show recent training history
+  plot_start_idx <- max(1, length(train_dates) - 26 + 1)
+  plot_dates <- train_dates[plot_start_idx:length(train_dates)]
+  plot_y <- y_train[plot_start_idx:length(y_train)]
+  
+  plot(x = plot_dates,
+       y = plot_y,
+       type = "l",
+       xlim = c(min(plot_dates), max(test_dates)),
+       ylim = range(c(y_train, y_test, df$fcst, df$lower, df$upper), na.rm = TRUE),
+       xlab = "Time",
+       ylab = "",
+       main = paste("Actual vs Forecast:", gsub("_", " ", nm), "(4-week test set)"),
+       xaxt = "n")
+  
+  tick_pos <- seq(from = min(plot_dates), to = max(test_dates), by = "1 month")
+  axis(1, at = tick_pos, labels = format(tick_pos, "%m-%Y"))
+  
+  # split between training and test
+  abline(v = tail(train_dates, 1), lty = 2, col = "gray")
+  
+  # actual held-out values
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), y_test),
+        col = "black", lwd = 2)
+  
+  # forecasted values
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), df$fcst),
+        col = "blue", lty = 2, lwd = 2)
+  
+  # prediction intervals
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), df$lower),
+        col = "red", lty = 3)
+  
+  lines(x = c(tail(train_dates, 1), test_dates),
+        y = c(tail(y_train, 1), df$upper),
+        col = "red", lty = 3)
+  
+  legend("topleft",
+         legend = c("Train", "Actual test", "Forecast", "95% interval"),
+         col = c("black", "black", "blue", "red"),
+         lty = c(1, 1, 2, 3),
+         lwd = c(1, 2, 2, 1),
+         bty = "n")
 }
 ```
 
-```{r}
-# 13 weeks (Quarter of a year)
-pred_regions_13 <- predict(fit_var_regions, n.ahead = 13, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_13, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_13, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_13 <- forecast(fit_var_regions, h = 13, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_13$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2027)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 24 weeks
-pred_regions_24 <- predict(fit_var_regions, n.ahead = 24, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_24, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_24, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_24 <- forecast(fit_var_regions, h = 24, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_24$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2027)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 24 weeks
-pred_regions_24 <- predict(fit_var_regions, n.ahead = 24, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_24, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_24, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_24 <- forecast(fit_var_regions, h = 24, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_24$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2027)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 26 weeks (Half a year)
-pred_regions_26 <- predict(fit_var_regions, n.ahead = 26, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_26, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm), " (6 months)"),
-       xlim = c(1700,1750))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_26, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_26 <- forecast(fit_var_regions, h = 26, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_26$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2027)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 36 weeks
-pred_regions_36 <- predict(fit_var_regions, n.ahead = 36, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_36, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_36,
-#            names = nm,
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_36 <- forecast(fit_var_regions, h = 36, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_36$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2028)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 39 weeks (3/4 of a year)
-pred_regions_39 <- predict(fit_var_regions, n.ahead = 39, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_39, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_39,
-#            names = nm,
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_39 <- forecast(fit_var_regions, h = 39, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_39$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2028)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 48 weeks
-pred_regions_48 <- predict(fit_var_regions, n.ahead = 48, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_48, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm)),
-       xlim = c(1500,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_48, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_48 <- forecast(fit_var_regions, h = 48, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_48$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2028)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-```{r}
-# 52 weeks (A year)
-pred_regions_52 <- predict(fit_var_regions, n.ahead = 52, ci = 0.95)
-
-for (nm in colnames(x_regions)) {
-  plot(pred_regions_52, 
-       names = nm, 
-       main = paste("Forecast for", gsub("_", " ", nm), " (1 year)"),
-       xlim = c(1600,1800))
-}
-
-# for (nm in colnames(x_regions)) {
-#   fanchart(pred_regions_52, 
-#            names = nm, 
-#            main = paste("Forecast for", gsub("_", " ", nm)),
-#            xlim = c(1500,1800))
-# }
-# 
-# fc_regions_52 <- forecast(fit_var_regions, h = 52, level = 95)
-# for (nm in colnames(x_regions)) {
-#   p <- autoplot(fc_regions_52$forecast[[nm]]) +
-#        ggtitle(paste("Forecast:", gsub("_", " ", nm))) +
-#        xlim(c(2020, 2028)) +
-#        theme_minimal()
-#   print(p)
-# }
-```
-
-
+Seems like West Coast and East Coast do the best, they at least have a bit of a rise before dropping, the other ones just look like decreasing flat lines. 
