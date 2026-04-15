@@ -500,35 +500,62 @@ plot(pred_var_oil_1, names = "Brent",
 
 ```{r}
 # 4 weeks
-pred_var_oil_4 = predict(fit_var_oil, n.ahead = 4, ci = 0.95)
-fc_oil_4 <- forecast(fit_var_oil, h = 4, level = 95)
+forecasted <- predict(fit_var_oil, n.ahead = 4, ci = 0.95)
 
-# GAS
-last_obs_time <- max(time(x_oil))
-forecast_end <- last_obs_time + (8/52)
-plot(pred_var_oil_4, names = "Gasoline",
-     main = "Forecast for Gasoline (4 weeks)",
-    xlim = c(last_obs_time - 1, forecast_end))
-# fanchart(pred_var_oil_4, names = "Gasoline", 
-#          main = "Forecast for Gasoline",
-#          xlim = c(1500,1800))
-autoplot(fc_oil_4$forecast$Gasoline) +
-  ggtitle("Forecast for Gasoline") +
-  xlim(c(1700,1750)) +
-  theme_minimal()
+series_names <- c("Gasoline", "Brent")
+titles <- c("Forecast for Gasoline (4 weeks)", "Forecast for Brent (4 weeks)")
 
-# BRENT
-plot(pred_var_oil_4, names = "Brent",
-     main = "Forecast for Brent (4 weeks)")
-     #xlim = c(1700,1750))
-# fanchart(pred_var_oil_4, names = "Brent", 
-#          main = "Forecast for Brent",
-#          xlim = c(1500,1800))
-autoplot(fc_oil_4$forecast$Brent) +
-  ggtitle("Forecast for Brent") +
-  xlim(c(2025, 2027)) +
-  theme_minimal()
+for (i in 1:2) {
+  name <- series_names[i]
+  
+  y_hist_full <- x_oil[, name]
+  y_hist <- window(y_hist_full, start = 2025)
+  t_hist_num <- as.numeric(time(y_hist))
+  
+  df <- as.data.frame(forecasted$fcst[[name]])
+  t_fc <- tail(as.numeric(time(y_hist_full)), 1) + (1:4) / frequency(y_hist_full)
+  
+  # zoom in so the forecast is easier to see
+  plot_start <- tail(t_hist_num, 26)[1]   # last ~26 weeks
+  
+  plot(y = y_hist,
+       x = t_hist_num,
+       type = "l",
+       xlim = c(plot_start, max(t_fc)),
+       ylim = range(c(y_hist, df$fcst, df$lower, df$upper), na.rm = TRUE),
+       xlab = "Time",
+       ylab = "",
+       main = titles[i],
+       xaxt = "n")
+  
+  tick_pos <- pretty(c(plot_start, max(t_fc)), n = 6)
+  axis(1,
+       at = tick_pos,
+       labels = format(
+         as.Date((tick_pos - 1970) * 365.25, origin = "1970-01-01"),
+         "%m-%Y"
+       ))
+  
+  abline(v = tail(as.numeric(time(y_hist_full)), 1), lty = 2, col = "gray")
+  
+  # connect forecast lines to the last observed point
+  last_t <- tail(t_hist_num, 1)
+  last_y <- tail(y_hist, 1)
+  
+  lines(x = c(last_t, t_fc),
+        y = c(last_y, df$fcst),
+        col = "blue", lty = 2)
+  
+  lines(x = c(last_t, t_fc),
+        y = c(last_y, df$lower),
+        col = "red", lty = 3)
+  
+  lines(x = c(last_t, t_fc),
+        y = c(last_y, df$upper),
+        col = "red", lty = 3)
+}
 ```
+
 
 ```{r}
 # 12 weeks
