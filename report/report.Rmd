@@ -33,7 +33,19 @@ knitr::opts_chunk$set(echo = FALSE) # set echo = FALSE to hide code from output
 
 # Introduction
 
-...
+This analysis explores gasoline price dynamics by analyzing the relationship of American gasoline prices with crude oil prices and comparing regional gasoline prices within the United States. The main research questions are:
+
+- How do Brent crude oil price changes pass through to U.S. retail gasoline prices, and over what time range does this occur?
+
+- How do regional gasoline prices co-move over time? Are there lead–lag relationships between regions?
+
+Based on the findings, changes in the price of Brent crude oil affect the price of gasoline in the US at a one-week lag. Regional gasoline prices are correlated and move in conjunction with each other, especially in the Midwest, Gulf Coast and East Coast. Gasoline prices in the West Coast and the Rockies regions have less correlation with the other regions, especially during larger shocks,implying more local impacts to the price. The West Coast and Rockies regions may have higher transportation-related costs and policy-driven costs, such as tax. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term with the best prediction being the mean in the long term.
+
+## Data
+
+**ADD CITATIONS**
+
+The main data sources are the weekly U.S. gasoline prices from the U.S. Energy Information Administration and Brent crude oil prices from Yahoo Finance. The weekly U.S. gasoline prices include gasoline prices for overall country and regional prices. The time period for the data is from 1994 to 2025. Brent crude is the main input cost for gasoline, so changes in oil prices often pass through to pump prices with a lag. Regional gasoline data also captures differences in refining capacity, transportation, and local supply constraints. The regions are East Coast, Midwest, Gulf Coast, Rocky Mountains, and West Coast. This analysis helps explain how crude oil shocks affect consumer fuel prices and inflation. Forecasting this relationship can improve pricing expectations, support policy and business planning, and help anticipate the impact of supply disruptions or geopolitical events.
 
 # Methods
 
