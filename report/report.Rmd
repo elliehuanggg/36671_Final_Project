@@ -45,53 +45,181 @@ Based on the findings, changes in the price of Brent crude oil affect the price 
 
 **ADD CITATIONS**
 
-The main data sources are the weekly U.S. gasoline prices from the U.S. Energy Information Administration and Brent crude oil prices from Yahoo Finance. The weekly U.S. gasoline prices include gasoline prices for overall country and regional prices. The time period for the data is from 1994 to 2025. Brent crude is the main input cost for gasoline, so changes in oil prices often pass through to pump prices with a lag. Regional gasoline data also captures differences in refining capacity, transportation, and local supply constraints. The regions are East Coast, Midwest, Gulf Coast, Rocky Mountains, and West Coast. This analysis helps explain how crude oil shocks affect consumer fuel prices and inflation. Forecasting this relationship can improve pricing expectations, support policy and business planning, and help anticipate the impact of supply disruptions or geopolitical events.
+The main data sources are the weekly U.S. gasoline prices from the U.S. Energy Information Administration and Brent crude oil prices from Yahoo Finance. The weekly U.S. gasoline prices include gasoline prices for overall country and regional prices. The time period for the data is from 1994 to 2025 at a weekly frequency. This is a total of 1722 observations for each time series. Brent crude is the main input cost for gasoline, so changes in oil prices often pass through to pump prices with a lag. Regional gasoline data also captures differences in refining capacity, transportation, and local supply constraints. The regions are East Coast, Midwest, Gulf Coast, Rocky Mountains, and West Coast. This analysis helps explain how crude oil shocks affect consumer fuel prices and inflation. Forecasting this relationship can improve pricing expectations, support policy and business planning, and help anticipate the impact of supply disruptions or geopolitical events.
 
 # Methods
 
-Text example that references Table \@ref(tab:table-example).
+All time series (i.e. Brent crude oil prices, US gasoline prices, and the five regional gas prices) are log-transformed and differences in order to achieve stationarity. Then, the CCF (cross-correlation function) plots are examined in order toidentify the lags with the strongest relationships and potential lead–lag structure. After fitting an initial ARMA (autoregressive moving average) model to the gasoline prices, all time series were modeled using VAR (vector autoregressive) models in order to understand and forecast the dynamics between US gasoline prices, regional gasoline prices and crude oil prices.
 
-```{r table-example}
-library(pander)
-library(tidyverse)
-library(reshape2)
-library(kableExtra)
-library(knitr)
+This analysis fit two VAR models: one using US gasoline prices and Brent crude oil prices and one using the 5 regional oil prices. These two models are used to answer the two research questions above, respectively. The appropriate lag-order for the VAR models was chosen based on several selection criteria, including AIC (Akaike Information Criterion), HQ (Hannan-Quinn Criterion), SC (Schwarz Criterion), and FPE (Final Prediction Error). In both analyses, the simplest order was chosen due to parsimony and model diagnostics. The cross-lag coefficients of the VAR models were interpreted in order to identify which series lead and which follow. Diagnostics indicated that the VAR model was appropriate for these time series. These models also are used to forecast each time series over a four-week period.
 
-# Titanic table
+```{r}
+###########################
+# DATA CLEANING
+###########################
+library(here)
+library(readr)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(vars)
+library(forecast)
+library(lubridate)
+library(tibble)
+# File paths
+gas_file_path <- here("data", "PET_PRI_GND_A_EPM0_PTE_DPGAL_W.xls")
+brent_file_path <- here("data", "brent_crude_weekly_1993_present.csv")
+# Load weekly U.S. gasoline prices
+us_gas_df <- read_excel(gas_file_path, sheet = "Data 1", skip = 2) |>
+  rename(
+    Date = 1,
+    US_All_Grades = 2
+  ) |>
+  mutate(
+    Date = as.Date(Date),
+    US_All_Grades = as.numeric(US_All_Grades)
+  ) |>
+  arrange(Date)
 
-titantic <- read_csv(paste0("https://raw.githubusercontent.com/",
-                            "benjaminleroy/stat315summer_data/",
-                            "master/assignments/assignment03/titanic.csv"))
-titantic %>% group_by(Pclass, Sex) %>%
-  summarize(t = n()) %>% dcast(Pclass ~ Sex) %>%
-  rename(`Passenger class` = Pclass) %>%
-  kable(format = "latex",
-        caption = paste("Passenger gender and class divisions on the Titanic.",
-                        "More 3rd class passengers were males seeking a",
-                        "better life."),
-        booktabs = T) %>%
-  kable_styling(latex_options = "HOLD_position")
+# Load weekly regional gasoline prices
+region_gas_df <- read_excel(gas_file_path, sheet = "Data 2", skip = 2) |>
+  rename(
+    Date = 1,
+    East_Coast = 2,
+    New_England = 3,
+    Central_Atlantic = 4,
+    Lower_Atlantic = 5,
+    Midwest = 6,
+    Gulf_Coast = 7,
+    Rocky_Mountain = 8,
+    West_Coast = 9,
+    West_Coast_ex_CA = 10
+  ) |>
+  mutate(
+    Date = as.Date(Date),
+    across(-Date, as.numeric)
+  ) |>
+  arrange(Date)
+
+# Keep the five regions used in the regional VAR
+gas_df <- us_gas_df |>
+  left_join(
+    region_gas_df |>
+      dplyr::select(Date, East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast),
+    by = "Date"
+  ) |>
+  drop_na()
+# Load weekly Brent crude oil prices
+brent_df <- read_csv(brent_file_path, show_col_types = FALSE) |>
+  rename(Brent = Brent_Price_USD) |>
+  mutate(
+    Date = as.Date(Date),
+    Brent = as.numeric(Brent)
+  ) |>
+  arrange(Date)
+# Helper to create weekly ts objects
+make_weekly_ts <- function(x, start_date) {
+  ts(
+    x,
+    start = c(
+      as.numeric(format(start_date, "%Y")),
+      as.numeric(format(start_date, "%U")) + 1
+    ),
+    frequency = 52
+  )
+}
+
+gas_start_date <- min(gas_df$Date)
+
+# Univariate gasoline series
+us_gas_ts <- make_weekly_ts(gas_df$US_All_Grades, gas_start_date)
+east_ts <- make_weekly_ts(gas_df$East_Coast, gas_start_date)
+midwest_ts <- make_weekly_ts(gas_df$Midwest, gas_start_date)
+gulf_ts <- make_weekly_ts(gas_df$Gulf_Coast, gas_start_date)
+rocky_ts <- make_weekly_ts(gas_df$Rocky_Mountain, gas_start_date)
+west_ts <- make_weekly_ts(gas_df$West_Coast, gas_start_date)
+
+# Multivariate gasoline series for regional VAR analysis
+region_var_ts <- gas_df |>
+  dplyr::select(East_Coast, Midwest, Gulf_Coast, Rocky_Mountain, West_Coast) |>
+  as.matrix() |>
+  ts(
+    start = c(
+      as.numeric(format(gas_start_date, "%Y")),
+      as.numeric(format(gas_start_date, "%U")) + 1
+    ),
+    frequency = 52
+  )
+
+colnames(region_var_ts) <- c(
+  "East_Coast", "Midwest", "Gulf_Coast", "Rocky_Mountain", "West_Coast"
+)
+# Align gasoline and Brent crude on common weekly dates
+gas_brent_df <- gas_df |>
+  inner_join(brent_df, by = "Date") |>
+  drop_na()
+gas_brent_start_date <- min(gas_brent_df$Date)
+
+gas_ts_brent_overlap <- make_weekly_ts(gas_brent_df$US_All_Grades, gas_brent_start_date)
+brent_ts <- make_weekly_ts(gas_brent_df$Brent, gas_brent_start_date)
 ```
 
 # Results
 
-Text example that references Figure \@ref(fig:fig-example).
+Text example that references Figure \@ref(fig:fig-regional-ts). Test refernces \@ref(fig:fig-brent-ts)
 
-```{r fig-example, fig.cap = "Survival rates across different passenger classes. This figure does not tell the full story as Table 1 shows that more of the lower class passengers were male."}
+```{r fig-brent-ts, fig.cap = "Brent crude oil prices and U.S. gasoline prices follow similar trends over time with slight lags between the two time series."}
 
-# Titanic visual
+###########################
+# EXPLORATORY DATA ANALYSIS
+###########################
 
-titantic %>% ggplot() +
-  geom_bar(aes(fill = factor(Survived, 
-                             levels = c(0,1), 
-                             labels = c("No", "Yes")), Pclass), 
-           position = "fill") +
-  scale_fill_manual(values = c("black", "lightblue")) +
-  labs(fill = "Survived",
-       y = "Proportion",
-       x = "Passenger class",
-       title = "Survival rates by passenger class")
+# Standardize gasoline and Brent for visual comparison
+gas_scaled_ts <- ts(
+  as.numeric(scale(as.numeric(gas_ts_brent_overlap))),
+  start = start(gas_ts_brent_overlap),
+  frequency = frequency(gas_ts_brent_overlap)
+)
+
+brent_scaled_ts <- ts(
+  as.numeric(scale(as.numeric(brent_ts))),
+  start = start(brent_ts),
+  frequency = frequency(brent_ts)
+)
+
+ts.plot(
+  brent_scaled_ts, gas_scaled_ts,
+  col = c("steelblue", "firebrick"), lty = 1,
+  main = "Standardized Brent Crude Oil and U.S. Gasoline Prices",
+  xlab = "Year",
+  ylab = "Standardized Value"
+)
+legend(
+  "topleft",
+  legend = c("Brent crude oil", "U.S. gasoline"),
+  col = c("steelblue", "firebrick"),
+  lty = 1,
+  bty = "n"
+)
+```
+
+
+```{r fig-regional-ts, fig.cap = "While regional gasoline prices follow a shared general trend with similar rises and drops, there are still regional discrepancies, likely due to local dynamics."}
+# Regional gasoline prices
+ts.plot(
+  east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
+  col = 1:5, lty = 1,
+  main = "Regional Weekly Gasoline Prices",
+  xlab = "Year",
+  ylab = "Dollars per Gallon"
+)
+legend(
+  "topleft",
+  legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
+  col = 1:5, lty = 1, bty = "n"
+)
 ```
 
 # Discussion
