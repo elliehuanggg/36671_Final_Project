@@ -29,7 +29,8 @@ knitr::opts_chunk$set(echo = FALSE) # set echo = FALSE to hide code from output
 
 # Executive summary {-}
 
-...
+This report analyzes the relationship of American gasoline prices with crude oil prices and comparing regional gasoline prices within the United States in order to model, forecast and understand gasoline price dynamics in the United States. These findings are based on two fitted VAR (vector autoregressive) models. The first VAR model is fit on US gasoline prices and Brent crude oil prices. The second VAR model is fit on the gasoline prices for 5 subregions of the United States: West Coast, Rocky Mountains, Midwest, Gulf Coast, and East Coast. Based on the findings, changes in the price of Brent crude oil from a week ago affect the price of gasoline in the US. Regional gasoline prices overall tend to move in conjunction with each other, but gasoline prices in the West Coast and the Rockies regions seem to be more driven by local impacts to the price, possibly due to higher transportation-related costs and policy-driven costs. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term as the prices regress to the mean. The strongest errors in the models are due to external shocks that are outside the scope of this model and could not be forecasted.
+
 
 # Introduction
 
@@ -49,7 +50,7 @@ The main data sources are the weekly U.S. gasoline prices from the U.S. Energy I
 
 # Methods
 
-All time series (i.e. Brent crude oil prices, US gasoline prices, and the five regional gas prices) are log-transformed and differences in order to achieve stationarity. Then, the CCF (cross-correlation function) plots are examined in order toidentify the lags with the strongest relationships and potential lead–lag structure. After fitting an initial ARMA (autoregressive moving average) model to the gasoline prices, all time series were modeled using VAR (vector autoregressive) models in order to understand and forecast the dynamics between US gasoline prices, regional gasoline prices and crude oil prices.
+All time series (i.e. Brent crude oil prices, US gasoline prices, and the five regional gas prices) are log-transformed and differences in order to achieve stationarity. Then, the CCF (cross-correlation function) plots are examined in order to identify the lags with the strongest relationships and potential lead–lag structure. After fitting an initial ARMA (autoregressive moving average) model to the gasoline prices, all time series were modeled using VAR (vector autoregressive) models in order to understand and forecast the dynamics between US gasoline prices, regional gasoline prices and crude oil prices.
 
 This analysis fit two VAR models: one using US gasoline prices and Brent crude oil prices and one using the 5 regional oil prices. These two models are used to answer the two research questions above, respectively. The appropriate lag-order for the VAR models was chosen based on several selection criteria, including AIC (Akaike Information Criterion), HQ (Hannan-Quinn Criterion), SC (Schwarz Criterion), and FPE (Final Prediction Error). In both analyses, the simplest order was chosen due to parsimony and model diagnostics. The cross-lag coefficients of the VAR models were interpreted in order to identify which series lead and which follow. Diagnostics indicated that the VAR model was appropriate for these time series. These models also are used to forecast each time series over a four-week period.
 
