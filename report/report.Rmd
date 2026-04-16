@@ -295,6 +295,8 @@ legend(
 
 ## Gasoline-Oil Prices VAR(2) Model
 
+After log-differencing US gasoline prices and Brent crude oil prices, the fitted VAR(2) model for US gasoline model is $gas_t = 0.411722 \times gas_{t-1} + 0.093528 \times oil_{t-1} + 0.141533 \times gas_{t-2} - 0.023122 \times oil_{t-2}$.
+
 ```{r}
 # First differences of log prices
 d_us_gas_overlap <- diff(log(gas_ts_brent_overlap))
