@@ -168,14 +168,16 @@ brent_ts <- make_weekly_ts(gas_brent_df$Brent, gas_brent_start_date)
 
 # Results
 
-Text example that references Figure \@ref(fig:fig-regional-ts). Test refernces \@ref(fig:fig-brent-ts)
+## Exploratory Data Analysis
 
-```{r fig-brent-ts, fig.cap = "Brent crude oil prices and U.S. gasoline prices follow similar trends over time with slight lags between the two time series."}
+Text example that references Figure \@ref(fig:fig-ts-plot).
+
+```{r fig-ts-plot, fig.cap = "While regional gasoline prices, Brent crude oil prices and U.S. gasoline prices follow a shared general trend with similar rises and drops, there are still discrepancies between different time series.", fig.height = 3}
 
 ###########################
 # EXPLORATORY DATA ANALYSIS
 ###########################
-
+par(mfrow = c(1,2))
 # Standardize gasoline and Brent for visual comparison
 gas_scaled_ts <- ts(
   as.numeric(scale(as.numeric(gas_ts_brent_overlap))),
@@ -192,7 +194,7 @@ brent_scaled_ts <- ts(
 ts.plot(
   brent_scaled_ts, gas_scaled_ts,
   col = c("steelblue", "firebrick"), lty = 1,
-  main = "Standardized Brent Crude Oil and U.S. Gasoline Prices",
+  main = "Standardized Brent Crude Oil\nand U.S. Gasoline Prices",
   xlab = "Year",
   ylab = "Standardized Value"
 )
@@ -201,12 +203,9 @@ legend(
   legend = c("Brent crude oil", "U.S. gasoline"),
   col = c("steelblue", "firebrick"),
   lty = 1,
-  bty = "n"
+  bty = "n",
+  cex = 0.5
 )
-```
-
-
-```{r fig-regional-ts, fig.cap = "While regional gasoline prices follow a shared general trend with similar rises and drops, there are still regional discrepancies, likely due to local dynamics."}
 # Regional gasoline prices
 ts.plot(
   east_ts, midwest_ts, gulf_ts, rocky_ts, west_ts,
@@ -218,11 +217,21 @@ ts.plot(
 legend(
   "topleft",
   legend = c("East Coast", "Midwest", "Gulf Coast", "Rocky Mountain", "West Coast"),
-  col = 1:5, lty = 1, bty = "n"
+  col = 1:5, lty = 1, bty = "n",
+  cex = 0.5
 )
 ```
 
+
+## Gasoline Prices AR(2) Model
+
+## Gasoline-Oil Prices VAR(2) Model
+
+## Regional Gasoline Prices VAR(1) Model
+
 # Discussion
+
+## Diagnostics
 
 ...
 
