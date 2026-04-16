@@ -170,9 +170,9 @@ brent_ts <- make_weekly_ts(gas_brent_df$Brent, gas_brent_start_date)
 
 ## Exploratory Data Analysis
 
-Text example that references Figure \@ref(fig:fig-ts-plot).
+As shown in Figure \@ref(fig:fig-ts-plot), regional gasoline prices, Brent crude oil prices and U.S. gasoline prices have similar shocks and directional trend, but there are still discrepancies between different time series. In particular, there are lags between the gasoline and crude oil prices, and the regional prices have varying magnitude for shocks, implying local dynamics influencing the regions individually. Some of the shocks can be explained by the historical events at the time. For example, California implemented higher gasoline taxes per gallon throughout the 2010s resulting in the dip around 2016 in the regional plot. In addition, the sharp dip in the US gasoline prices at 2008 are due to the financial crisis and the rise around 2022 are due to sanctions on Russia due to Ukraine war.
 
-```{r fig-ts-plot, fig.cap = "While regional gasoline prices, Brent crude oil prices and U.S. gasoline prices follow a shared general trend with similar rises and drops, there are still discrepancies between different time series.", fig.height = 3}
+```{r fig-ts-plot, fig.cap = "Regional gasoline prices, Brent crude oil prices and U.S. gasoline prices follow a shared general trend with similar rises and drops, there are still discrepancies between different time series.", fig.height = 3}
 
 ###########################
 # EXPLORATORY DATA ANALYSIS
@@ -225,14 +225,188 @@ legend(
 
 ## Gasoline Prices AR(2) Model
 
+As plotted in Figure \@ref(fig:fig-gas-ar-model), the fitted AR(2) model for US gasoline prices is: $gas_t = 0.5395\times gas_{t-1} + 0.0696 \times gas_{t-2} + w_t$, where $w_t$ is Gaussian white noise. Most of the predictable signal comes from the previous week rather than two weeks back. The fitted mean is 0.0006, which is close to zero after differencing and logging. The residual lag 1 autocorrelation is -0.0049, so there is little obvious linear dependence left in the residuals.
+
+
+```{r fig-gas-ar-model, fig.cap = "The AR(2) fit suggests that gasoline price changes are driven mostly by very recent history, but ultimately regress to the mean."}
+###########################
+# GASOLINE AR MODEL
+###########################
+# Difference log gasoline prices to work with an approximately stationary series
+d_us_gas <- diff(log(us_gas_ts))
+
+# Hold out the last 4 weeks for a simple forecast check
+forecast_horizon <- 4
+n_gas <- length(d_us_gas)
+
+train_d_us_gas <- window(d_us_gas, end = time(d_us_gas)[n_gas - forecast_horizon])
+test_d_us_gas <- window(d_us_gas, start = time(d_us_gas)[n_gas - forecast_horizon + 1])
+
+# Fit AR(2) model
+fit_ar2_gas <- arima(train_d_us_gas, order = c(2, 0, 0))
+
+# Forecast the held-out period
+fc_ar2_gas <- forecast(fit_ar2_gas, h = forecast_horizon, level = 95)
+
+fc_mean_ts <- ts(
+  as.numeric(fc_ar2_gas$mean),
+  start = start(test_d_us_gas),
+  frequency = frequency(test_d_us_gas)
+)
+
+fc_lower_ts <- ts(
+  as.numeric(fc_ar2_gas$lower[, 1]),
+  start = start(test_d_us_gas),
+  frequency = frequency(test_d_us_gas)
+)
+
+fc_upper_ts <- ts(
+  as.numeric(fc_ar2_gas$upper[, 1]),
+  start = start(test_d_us_gas),
+  frequency = frequency(test_d_us_gas)
+)
+
+# Show recent history leading into the forecast origin
+weeks_of_history <- 20
+tail_start_time <- time(d_us_gas)[n_gas - forecast_horizon - weeks_of_history + 1]
+actual_tail_ts <- window(d_us_gas, start = tail_start_time)
+
+plot(
+  actual_tail_ts,
+  type = "l",
+  lwd = 2,
+  main = "AR(2) Forecast vs. Actual Near the Series End",
+  xlab = "Time",
+  ylab = "Differenced Log Gasoline",
+  ylim = range(c(actual_tail_ts, fc_mean_ts, fc_lower_ts, fc_upper_ts))
+)
+lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
+lines(fc_lower_ts, lty = 3, col = "blue")
+lines(fc_upper_ts, lty = 3, col = "blue")
+abline(v = time(test_d_us_gas)[1], lty = 2)
+legend(
+  "topleft",
+  legend = c("Actual", "Forecast", "95% interval", "Forecast origin"),
+  lty = c(1, 2, 3, 2),
+  lwd = c(2, 2, 1, 1),
+  bty = "n"
+)
+```
+
 ## Gasoline-Oil Prices VAR(2) Model
+
+```{r}
+# First differences of log prices
+d_us_gas_overlap <- diff(log(gas_ts_brent_overlap))
+d_brent <- diff(log(brent_ts))
+
+# Calendar dates corresponding to the differenced series
+gas_brent_diff_dates <- gas_brent_df$Date[-1]
+```
+
+Based on Figure \@ref(fig:fig-ccf-brent), the cross-correlation function peaks at lag 0, which means gasoline and Brent often move strongly within the same week. There are also positive correlations at negative lags, especially around -1 to -3, which is consistent with Brent changes showing up in gasoline prices over the following weeks.
+
+
+```{r fig-ccf-brent, fig.cap = "Label goes here"}
+# Negative lag means Brent leads gasoline
+ccf(
+  d_brent, d_us_gas_overlap,
+  lag.max = 12,
+  main = "CCF: Brent vs. U.S. Gasoline (Differenced Log Prices)"
+)
+# Bivariate stationary series for VAR analysis
+oil_var_ts <- cbind(
+  Gasoline = d_us_gas_overlap,
+  Brent = d_brent
+)
+```
+
+
+```{r tbl-criterion-one, tbl.cap = "Label goes here"}
+var_analysis <- VARselect(oil_var_ts, lag.max = 8, type = "none")
+# Candidate lag lengths
+gt::gt(as.data.frame(t(var_analysis$selection),
+                     check.names = F))
+fit_var_oil <- VAR(oil_var_ts, p = 2, type = "none")
+resid_oil  <- resid(fit_var_oil)
+```
+
 
 ## Regional Gasoline Prices VAR(1) Model
 
 # Discussion
 
-## Diagnostics
+## AR(2) Model
 
+The forecast plot in Figure \@ref(fig:fig-gas-ar-model) show the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly. 
+
+## Diagnostics - VAR(2) Model
+
+The largest residuals for US gasoline prices in Figure \@ref(fig:fig-gas-resids) are due to external shocks that are outside the scope of this model. The first peak in October 2005 is due to Hurricane Katrina, which damaged oil refineries in the gulf coast, leading to spikes in gasoline prices. The shock at November 2008 is due to the financial crisis, which decreased gasoline demand and lead to lower prices. The residual at October 2017 corresponds to OPEC announcing supply cut for oil, leading to higher prices. In April 2022, sanctions on Russian oil lead to higher prices. Finally, during April 2026, oil prices have increased since the Straight of Hormuz is 
+blocked. The residuals for Brent oil prices and regional gas prices have similarly timed residuals, corresponding to the same events.
+
+```{r fig-gas-resids, fig.cap = "The largest residuals correspond to historical events that cannot be reliably modeled."}
+plot_residuals_with_events <- function(res_vec, dates_vec, series_name,
+                                       threshold_upper, threshold_lower,
+                                       label_y_positions) {
+  
+  # Build dataframe once
+  df <- data.frame(time = dates_vec,
+                   value = res_vec)
+  
+  # Filter event dates
+  event_dates <- df |>
+    filter(value > threshold_upper | value < threshold_lower) |>
+    group_by(floor(time)) |>
+    summarize(dates = mean(time), .groups = "drop") |>
+    mutate(dates = as.Date(date_decimal(dates))) |>
+    pull(dates)
+  
+  # Convert to decimal time
+  event_times <- as.numeric(format(event_dates, "%Y")) +
+    (as.numeric(format(event_dates, "%j")) - 1) / 365
+  
+  # Plot
+  ts.plot(ts(res_vec,
+             start = dates_vec[1],
+             frequency = 52),
+          lty = 1,
+          main = paste("Residuals for", series_name),
+          xlab = "Year", ylab = "Residuals")
+  
+  usr <- par("usr")
+  
+  # Draw rectangles (vectorized)
+  rect(xleft  = event_times - 0.2,
+       xright = event_times + 0.2,
+       ybottom = usr[3],
+       ytop    = usr[4],
+       col = rgb(1, 0, 0, alpha = 0.2),
+       border = NA)
+  
+  # Labels
+  y_positions <- rep(label_y_positions, length.out = length(event_times))
+  
+  text(x = event_times,
+       y = y_positions,
+       labels = format(event_dates, "%b %Y"),
+       col = "red",
+       cex = 1)
+}
+
+# Gasoline
+plot_residuals_with_events(
+  res_vec = resid_oil[,1],
+  dates_vec = time(oil_var_ts)[-c(1,2)],
+  series_name = "Gasoline",
+  threshold_upper = 0.08,
+  threshold_lower = -0.05,
+  label_y_positions = c(-0.1, -0.08)
+)
+```
+
+
+## Diagnostics - VAR(1) Model
 ...
 
 \pagebreak
