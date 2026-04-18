@@ -1016,7 +1016,7 @@ lead_lag_summary |>
 
 ## ARIMA(4,0,1) Model
 
-The forecast plot in Figure \@ref(fig:fig-gas-ar-model) show the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly.
+The forecast plot in Figure \@ref(fig:fig-gas-ar-model) shows the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly.
 
 ## Diagnostics - VAR(2) Model
 
@@ -1084,7 +1084,11 @@ plot_residuals_with_events(
 
 ## Diagnostics - VAR(1) Model
 
-...
+The VAR(1) model is simpler, but it misses some of the patterns that the VAR(2) model picks up. The residuals are a bit larger overall, especially during volatile periods, which suggests the model is not capturing everything. You can also see more clustering in the residuals, meaning there are stretches where the model consistently under- or over-predicts. The same major events show up here too, like the spike from Hurrican Katrina in 2005 and the decline in demand and prices from the 2008 Financial Crisis, but with bigger errors, indicating that using only one lag is not enough to fully describe how prices evolve over time. There is also some remaining autocorrelation in the residuals, which again points to the model leaving some structure unexplained. Overall, the VAR(1) model works, but it does not fit the data as well as the VAR(2).
+
+## Overall Interpretation
+
+Putting everything together, a few key takeaways stand out. First, gasoline prices are closely tied to Brent crude oil, but the effect shows up with a short delay rather than immediately. Models that include oil prices capture this relationship better than those that don’t.Second, gasoline prices across regions generally move together, which suggests a well-connected market. That said, regions like the West Coast and Rocky Mountains behave somewhat differently, likely due to local constraints like regulations and infrastructure.Third, all models struggle during periods of extreme volatility. The largest errors line up with major global events, showing that models based only on past prices miss important external factors.Overall, the VAR(2) model does the best job capturing the structure in the data, while simpler models leave more unexplained variation. Adding external variables would likely improve performance, especially during large shocks.
 
 \pagebreak
 
