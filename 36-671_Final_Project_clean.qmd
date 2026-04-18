@@ -225,12 +225,9 @@ Several pairs, especially East Coast and Midwest, fall very tightly along a line
 
 These plots only describe contemporaneous association. They motivate a multivariate time-series approach, but they do not by themselves tell us which region moves first.
 
-## 2.5. AR Model for U.S. Gasoline
+## 2.5. ARIMA Model for U.S. Gasoline
 
 ```{r}
-# Difference log gasoline prices to work with an approximately stationary series
-d_us_gas <- diff(log(us_gas_ts))
-
 # Hold out the last 4 weeks for a simple forecast check
 forecast_horizon <- 4
 n_gas <- length(d_us_gas)
@@ -238,84 +235,129 @@ n_gas <- length(d_us_gas)
 train_d_us_gas <- window(d_us_gas, end = time(d_us_gas)[n_gas - forecast_horizon])
 test_d_us_gas <- window(d_us_gas, start = time(d_us_gas)[n_gas - forecast_horizon + 1])
 
-# Fit AR(2) model
-fit_ar2_gas <- arima(train_d_us_gas, order = c(2, 0, 0))
-summary(fit_ar2_gas)
+acf(train_d_us_gas)
 
-# Forecast the held-out period
-fc_ar2_gas <- forecast(fit_ar2_gas, h = forecast_horizon, level = 95)
+pacf(train_d_us_gas)
 
-fc_mean_ts <- ts(
-  as.numeric(fc_ar2_gas$mean),
-  start = start(test_d_us_gas),
-  frequency = frequency(test_d_us_gas)
-)
+auto.arima(train_d_us_gas)
 
-fc_lower_ts <- ts(
-  as.numeric(fc_ar2_gas$lower[, 1]),
-  start = start(test_d_us_gas),
-  frequency = frequency(test_d_us_gas)
-)
-
-fc_upper_ts <- ts(
-  as.numeric(fc_ar2_gas$upper[, 1]),
-  start = start(test_d_us_gas),
-  frequency = frequency(test_d_us_gas)
-)
-
-# Show recent history leading into the forecast origin
-weeks_of_history <- 20
-tail_start_time <- time(d_us_gas)[n_gas - forecast_horizon - weeks_of_history + 1]
-actual_tail_ts <- window(d_us_gas, start = tail_start_time)
-
-plot(
-  actual_tail_ts,
-  type = "l",
-  lwd = 2,
-  main = "AR(2) Forecast vs. Actual Near the Series End",
-  xlab = "Time",
-  ylab = "Differenced Log Gasoline",
-  ylim = range(c(actual_tail_ts, fc_mean_ts, fc_lower_ts, fc_upper_ts))
-)
-lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
-lines(fc_lower_ts, lty = 3, col = "blue")
-lines(fc_upper_ts, lty = 3, col = "blue")
-abline(v = time(test_d_us_gas)[1], lty = 2)
-legend(
-  "topleft",
-  legend = c("Actual", "Forecast", "95% interval", "Forecast origin"),
-  lty = c(1, 2, 3, 2),
-  lwd = c(2, 2, 1, 1),
-  bty = "n"
-)
-
-# Plot held-out actual values against forecasts
-plot(
-  test_d_us_gas,
-  type = "l",
-  lwd = 2,
-  main = "Actual vs. Forecast: AR(2), 4-Week Holdout",
-  xlab = "Time",
-  ylab = "Differenced Log Gasoline",
-  ylim = range(c(test_d_us_gas, fc_mean_ts, fc_lower_ts, fc_upper_ts))
-)
-lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
-lines(fc_lower_ts, lty = 3, col = "blue")
-lines(fc_upper_ts, lty = 3, col = "blue")
-legend(
-  "topleft",
-  legend = c("Actual", "Forecast", "95% interval"),
-  lty = c(1, 2, 3),
-  lwd = c(2, 2, 1),
-  bty = "n"
-)
+fit_arima_gas <- arima(train_d_us_gas, order = c(4, 0, 1))
+summary(fit_arima_gas)
 ```
 
-The AR(2) fit suggests that gasoline price changes are driven mostly by very recent history. The lag 1 coefficient is 0.5395, while the lag 2 coefficient is only 0.0696, so most of the predictable signal comes from the previous week rather than two weeks back.
+```{r}
+# Fitted values and residuals for ARIMA(4,0,1)
+fitted_gas_401 <- fitted(fit_arima_gas)
 
-The fitted mean is 0.0006, which is close to zero after differencing and logging. The residual lag 1 autocorrelation is -0.0049, so there is little obvious linear dependence left in the residuals.
+fit_gas_401 <- ts(
+  as.numeric(fitted_gas_401),
+  start = start(train_d_us_gas),
+  frequency = frequency(train_d_us_gas)
+)
 
-The forecast plots show the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly.
+obs_gas_401 <- window(
+  train_d_us_gas,
+  start = start(fit_gas_401),
+  end = end(fit_gas_401)
+)
+
+gas_resid_401 <- residuals(fit_arima_gas)
+
+par(mfrow = c(3, 2), mar = c(4, 4, 3, 1), cex.main = 0.85)
+
+# 1. Observed vs fitted over time
+plot(
+  obs_gas_401,
+  type = "l",
+  col = "black",
+  lwd = 1.2,
+  main = "Observed and Fitted Gasoline Changes",
+  xlab = "Time",
+  ylab = "Differenced Log Gasoline"
+)
+lines(
+  fit_gas_401,
+  col = "red",
+  lwd = 1.2
+)
+legend(
+  "topright",
+  legend = c("Observed", "Fitted"),
+  col = c("black", "red"),
+  lwd = 1.2,
+  bty = "n",
+  cex = 0.75
+)
+
+# 2. Observed versus fitted scatterplot
+plot(
+  as.numeric(obs_gas_401),
+  as.numeric(fit_gas_401),
+  pch = 16,
+  cex = 0.5,
+  main = "Observed versus Fitted Values",
+  xlab = "Observed",
+  ylab = "Fitted"
+)
+abline(0, 1, col = "red", lwd = 1.2)
+legend(
+  "topleft",
+  legend = paste(
+    "Correlation =",
+    round(cor(as.numeric(obs_gas_401), as.numeric(fit_gas_401)), 3)
+  ),
+  bty = "n",
+  cex = 0.75
+)
+
+# 3. Residuals over time
+plot(
+  gas_resid_401,
+  type = "l",
+  col = "black",
+  lwd = 1.2,
+  main = "Residuals from ARIMA(4,0,1)",
+  xlab = "Time",
+  ylab = "Residual"
+)
+abline(h = 0, col = "red", lwd = 1.2, lty = 2)
+
+# 4. Residual ACF
+acf(
+  gas_resid_401,
+  main = "ACF of Residuals",
+  xlab = "Lag",
+  ylab = "Autocorrelation",
+  lwd = 1.2
+)
+
+# 5. Residual PACF
+pacf(
+  gas_resid_401,
+  main = "PACF of Residuals",
+  xlab = "Lag",
+  ylab = "Partial Autocorrelation",
+  lwd = 1.2
+)
+
+# 6. Residual Q-Q plot
+qqnorm(
+  gas_resid_401,
+  main = "Normal Q-Q Plot of Residuals",
+  xlab = "Theoretical Quantiles",
+  ylab = "Sample Quantiles",
+  pch = 16,
+  cex = 0.5
+)
+qqline(
+  gas_resid_401,
+  col = "red",
+  lwd = 1.2
+)
+
+par(mfrow = c(1, 1))
+```
+
 
 ## 3. Brent Crude Oil vs. U.S. Gasoline
 
@@ -362,86 +404,63 @@ par(mfrow = c(1, 1))
 
 After differencing the log prices, both series fluctuate around a more stable mean and the autocorrelations decay much more quickly than in levels. The PACFs are dominated by the first few lags, which is consistent with using low-order dynamic models for the transformed series.
 
+```{r}
+# Hold out the last 4 weeks for forecasting to match the ARIMA analysis
+forecast_horizon <- 4
+n_overlap <- length(d_us_gas_overlap)
+
+train_d_us_gas_overlap <- window(
+  d_us_gas_overlap,
+  end = time(d_us_gas_overlap)[n_overlap - forecast_horizon]
+)
+
+test_d_us_gas_overlap <- window(
+  d_us_gas_overlap,
+  start = time(d_us_gas_overlap)[n_overlap - forecast_horizon + 1]
+)
+
+train_d_brent <- window(
+  d_brent,
+  end = time(d_brent)[n_overlap - forecast_horizon]
+)
+
+test_d_brent <- window(
+  d_brent,
+  start = time(d_brent)[n_overlap - forecast_horizon + 1]
+)
+```
+
+
 ### (ii) CCF and lagged regression
 
 ```{r}
 # Negative lag means Brent leads gasoline
 ccf(
-  d_brent, d_us_gas_overlap,
+  train_d_brent,
+  train_d_us_gas_overlap,
   lag.max = 12,
-  main = "CCF: Brent vs. U.S. Gasoline (Differenced Log Prices)"
+  main = "CCF: Brent vs. U.S. Gasoline (Training Sample)"
 )
 ```
 
 The cross-correlation function peaks at lag 0, which means gasoline and Brent often move strongly within the same week. There are also positive correlations at negative lags, especially around -1 to -3, which is consistent with Brent changes showing up in gasoline prices over the following weeks.
 
-```{r}
-# Build a lagged regression data set
-oil_gas_lag_df <- ts.intersect(
-  gas = d_us_gas_overlap,
-  brent_lag_1 = stats::lag(d_brent, -1),
-  brent_lag_2 = stats::lag(d_brent, -2),
-  brent_lag_3 = stats::lag(d_brent, -3),
-  dframe = TRUE
-)
-
-par(mfrow = c(1, 3))
-
-plot(
-  oil_gas_lag_df$brent_lag_1, oil_gas_lag_df$gas,
-  xlab = "Brent change 1 week earlier",
-  ylab = "Current gasoline change",
-  main = "Lag 1"
-)
-abline(lm(gas ~ brent_lag_1, data = oil_gas_lag_df), col = "red")
-
-plot(
-  oil_gas_lag_df$brent_lag_2, oil_gas_lag_df$gas,
-  xlab = "Brent change 2 weeks earlier",
-  ylab = "Current gasoline change",
-  main = "Lag 2"
-)
-abline(lm(gas ~ brent_lag_2, data = oil_gas_lag_df), col = "red")
-
-plot(
-  oil_gas_lag_df$brent_lag_3, oil_gas_lag_df$gas,
-  xlab = "Brent change 3 weeks earlier",
-  ylab = "Current gasoline change",
-  main = "Lag 3"
-)
-abline(lm(gas ~ brent_lag_3, data = oil_gas_lag_df), col = "red")
-
-par(mfrow = c(1, 1))
-```
-
-```{r}
-# Regression using Brent lags 1 to 3
-fit_oil_lag_lm <- lm(
-  gas ~ brent_lag_1 + brent_lag_2 + brent_lag_3,
-  data = oil_gas_lag_df
-)
-
-summary(fit_oil_lag_lm)
-```
-
-The lagged scatterplots support the CCF results. The association is strongest at a one-week lag, then becomes weaker at two and three weeks. In practical terms, this suggests that gasoline prices do not adjust all at once; some of the crude oil effect appears to pass through with a short delay.
-
 ### (iii) VAR(2) model
 
 ```{r}
-# Bivariate stationary series for VAR analysis
-oil_var_ts <- cbind(
-  Gasoline = d_us_gas_overlap,
-  Brent = d_brent
+# Bivariate stationary training series for VAR analysis
+oil_var_train_ts <- cbind(
+  Gasoline = train_d_us_gas_overlap,
+  Brent = train_d_brent
 )
 
 # Candidate lag lengths
-VARselect(oil_var_ts, lag.max = 8, type = "none")
+VARselect(oil_var_train_ts, lag.max = 8, type = "none")
 ```
 
 ```{r}
 # Fit the working VAR(2) model
-fit_var_oil <- VAR(oil_var_ts, p = 2, type = "none")
+fit_var_oil <- VAR(oil_var_train_ts, p = 2, type = "none")
 summary(fit_var_oil)
 ```
 
