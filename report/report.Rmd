@@ -27,18 +27,17 @@ knitr::opts_chunk$set(echo = FALSE) # set echo = FALSE to hide code from output
 
 ```
 
-# Executive summary {-}
+# Executive summary {.unnumbered}
 
 This report analyzes the relationship of American gasoline prices with crude oil prices and comparing regional gasoline prices within the United States in order to model, forecast and understand gasoline price dynamics in the United States. These findings are based on two fitted VAR (vector autoregressive) models. The first VAR model is fit on US gasoline prices and Brent crude oil prices. The second VAR model is fit on the gasoline prices for 5 subregions of the United States: West Coast, Rocky Mountains, Midwest, Gulf Coast, and East Coast. Based on the findings, changes in the price of Brent crude oil from a week ago affect the price of gasoline in the US. Regional gasoline prices overall tend to move in conjunction with each other, but gasoline prices in the West Coast and the Rockies regions seem to be more driven by local impacts to the price, possibly due to higher transportation-related costs and policy-driven costs. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term as the prices regress to the mean. The strongest errors in the models are due to external shocks that are outside the scope of this model and could not be forecasted.
-
 
 # Introduction
 
 This analysis explores gasoline price dynamics by analyzing the relationship of American gasoline prices with crude oil prices and comparing regional gasoline prices within the United States. The main research questions are:
 
-- How do Brent crude oil price changes pass through to U.S. retail gasoline prices, and over what time range does this occur?
+-   How do Brent crude oil price changes pass through to U.S. retail gasoline prices, and over what time range does this occur?
 
-- How do regional gasoline prices co-move over time? Are there lead–lag relationships between regions?
+-   How do regional gasoline prices co-move over time? Are there lead–lag relationships between regions?
 
 Based on the findings, changes in the price of Brent crude oil affect the price of gasoline in the US at a one-week lag. Regional gasoline prices are correlated and move in conjunction with each other, especially in the Midwest, Gulf Coast and East Coast. Gasoline prices in the West Coast and the Rockies regions have less correlation with the other regions, especially during larger shocks,implying more local impacts to the price. The West Coast and Rockies regions may have higher transportation-related costs and policy-driven costs, such as tax. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term with the best prediction being the mean in the long term.
 
@@ -50,14 +49,11 @@ The main data sources are the weekly U.S. gasoline prices from the U.S. Energy I
 
 # Methods
 
-All time series (i.e. Brent crude oil prices, US gasoline prices, and the five regional gas prices) are log-transformed and differences in order to achieve stationarity. Then, the CCF (cross-correlation function) plots are examined in order to identify the lags with the strongest relationships and potential lead–lag structure. After fitting an initial ARMA (autoregressive moving average) model to the gasoline prices, all time series were modeled using VAR (vector autoregressive) models in order to understand and forecast the dynamics between US gasoline prices, regional gasoline prices and crude oil prices.
-
-This analysis fit two VAR models: one using US gasoline prices and Brent crude oil prices and one using the 5 regional oil prices. These two models are used to answer the two research questions above, respectively. The appropriate lag-order for the VAR models was chosen based on several selection criteria, including AIC (Akaike Information Criterion), HQ (Hannan-Quinn Criterion), SC (Schwarz Criterion), and FPE (Final Prediction Error). In both analyses, the simplest order was chosen due to parsimony and model diagnostics. The cross-lag coefficients of the VAR models were interpreted in order to identify which series lead and which follow. Diagnostics indicated that the VAR model was appropriate for these time series. These models also are used to forecast each time series over a four-week period.
-
 ```{r}
-###########################
+#| echo: false
+
 # DATA CLEANING
-###########################
+
 library(here)
 library(readr)
 library(readxl)
@@ -69,9 +65,11 @@ library(vars)
 library(forecast)
 library(lubridate)
 library(tibble)
+
 # File paths
 gas_file_path <- here("data", "PET_PRI_GND_A_EPM0_PTE_DPGAL_W.xls")
 brent_file_path <- here("data", "brent_crude_weekly_1993_present.csv")
+
 # Load weekly U.S. gasoline prices
 us_gas_df <- read_excel(gas_file_path, sheet = "Data 1", skip = 2) |>
   rename(
@@ -112,6 +110,7 @@ gas_df <- us_gas_df |>
     by = "Date"
   ) |>
   drop_na()
+
 # Load weekly Brent crude oil prices
 brent_df <- read_csv(brent_file_path, show_col_types = FALSE) |>
   rename(Brent = Brent_Price_USD) |>
@@ -120,6 +119,7 @@ brent_df <- read_csv(brent_file_path, show_col_types = FALSE) |>
     Brent = as.numeric(Brent)
   ) |>
   arrange(Date)
+
 # Helper to create weekly ts objects
 make_weekly_ts <- function(x, start_date) {
   ts(
@@ -167,17 +167,11 @@ gas_ts_brent_overlap <- make_weekly_ts(gas_brent_df$US_All_Grades, gas_brent_sta
 brent_ts <- make_weekly_ts(gas_brent_df$Brent, gas_brent_start_date)
 ```
 
-# Results
-
-## Exploratory Data Analysis
-
-As shown in Figure \@ref(fig:fig-ts-plot), regional gasoline prices, Brent crude oil prices and U.S. gasoline prices have similar shocks and directional trend, but there are still discrepancies between different time series. In particular, there are lags between the gasoline and crude oil prices, and the regional prices have varying magnitude for shocks, implying local dynamics influencing the regions individually. Some of the shocks can be explained by the historical events at the time. For example, California implemented higher gasoline taxes per gallon throughout the 2010s resulting in the dip around 2016 in the regional plot. In addition, the sharp dip in the US gasoline prices at 2008 are due to the financial crisis and the rise around 2022 are due to sanctions on Russia due to Ukraine war.
-
 ```{r fig-ts-plot, fig.cap = "Regional gasoline prices, Brent crude oil prices and U.S. gasoline prices follow a shared general trend with similar rises and drops, there are still discrepancies between different time series.", fig.height = 3}
+#| echo: false
 
-###########################
 # EXPLORATORY DATA ANALYSIS
-###########################
+
 par(mfrow = c(1,2))
 # Standardize gasoline and Brent for visual comparison
 gas_scaled_ts <- ts(
@@ -223,71 +217,291 @@ legend(
 )
 ```
 
+As shown in Figure \@ref(fig:fig-ts-plot), regional gasoline prices, Brent crude oil prices and U.S. gasoline prices have similar shocks and directional trend, but there are still discrepancies between different time series. In particular, there are lags between the gasoline and crude oil prices, and the regional prices have varying magnitude for shocks, implying local dynamics influencing the regions individually. Some of the shocks can be explained by the historical events at the time. For example, California implemented higher gasoline taxes per gallon throughout the 2010s resulting in the dip around 2016 in the regional plot. In addition, the sharp dip in the US gasoline prices at 2008 are due to the financial crisis and the rise around 2022 are due to sanctions on Russia due to Ukraine war.
 
-## Gasoline Prices AR(2) Model
+The clear trends suggest that the series are non-stationary. Therefore, all time series (i.e. Brent crude oil prices, U.S. gasoline prices, and the five regional gasoline prices) are log-transformed and differenced in order to achieve stationarity.
 
-As plotted in Figure \@ref(fig:fig-gas-ar-model), the fitted AR(2) model for US gasoline prices is: $gas_t = 0.5395\times gas_{t-1} + 0.0696 \times gas_{t-2} + w_t$, where $w_t$ is Gaussian white noise. Most of the predictable signal comes from the previous week rather than two weeks back. The fitted mean is 0.0006, which is close to zero after differencing and logging. The residual lag 1 autocorrelation is -0.0049, so there is little obvious linear dependence left in the residuals.
+Our first objective was to fit an ARIMA model to the U.S. gasoline price series in order to understand the structure of the data and create a baseline model. This is achieved by examining ACF and PACF plots and using the `auto.arima` function to identify potential models.
 
+Building on this, we extended the analysis to VAR models in order to incorporate the effect of crude oil prices on gasoline prices. We first examined CCF (cross-correlation function) plots in order to identify the lags with the strongest relationships. The `VARselect` function was used to identify potential models. The same VAR methodology was used to examine the relationships among the regional gasoline prices.
 
-```{r fig-gas-ar-model, fig.cap = "The AR(2) fit suggests that gasoline price changes are driven mostly by very recent history, but ultimately regress to the mean."}
-###########################
-# GASOLINE AR MODEL
-###########################
-# Difference log gasoline prices to work with an approximately stationary series
+Therefore, this analysis fit two VAR models: one using US gasoline prices and Brent crude oil prices and one using the 5 regional oil prices. These two models are used to answer the two research questions above, respectively. VARselect suggested different ordered models based on several selection criteria, including AIC (Akaike Information Criterion), HQ (Hannan-Quinn Criterion), SC (Schwarz Criterion), and FPE (Final Prediction Error). In both analyses, a tradeoff between the simplest order due to parsimony and model diagnostics was used to choose the final model. The cross-lag coefficients of the VAR models were interpreted in order to identify which series lead and which follow. Diagnostics indicated that the VAR model was appropriate for these time series. These models also are used to forecast each time series over a four-week period.
+
+# Results
+
+## Gasoline Prices ARIMA(4,0,1) Model
+
+The ACF gradually decreased, but rather than declining smoothly it displayed slight oscillation and several small but significant spikes at later lags. This pattern suggested that the series may contain both autoregressive and moving average components rather than a simple autoregressive structure alone. The PACF had a strong spike at lag 1, with smaller spikes at the next few lags before cutting off. There was no clear evidence of seasonality. Together, these plots suggested that a model containing both autoregressive and moving-average terms would provide a more appropriate fit than a simple AR model. The `auto.arima` function selected an ARIMA(4,0,1) model with no intercept for the differenced series.
+
+```{r}
+#| echo: false
+#| # Difference log gasoline prices 
 d_us_gas <- diff(log(us_gas_ts))
 
+# Differenced log gasoline prices plots
+plot(
+  d_us_gas,
+  type = "l",
+  col = "steelblue",
+  lwd = 2,
+  main = "Differenced Log U.S. Gasoline Prices",
+  xlab = "Time",
+  ylab = "Differenced Log U.S. Gasoline Price"
+)
+
+abline(h = 0, col = "darkred", lwd = 2, lty = 2)
+grid(col = "lightgray", lty = "dotted")
+
+mtext(
+  "The series appears approximately stationary.",
+  side = 1,
+  line = 4,
+  cex = 0.9,
+  col = "gray30"
+)
+```
+
+```{r}
+#| echo: false
+
+#ACF and PACF 
+
+par(mfrow = c(2, 1), mar = c(4, 4, 4, 1))
+
+acf(
+  d_us_gas,
+  main = "ACF of Differenced Log U.S. Gasoline Prices",
+  xlab = "Lag",
+  ylab = "Autocorrelation",
+  lwd = 1.5,
+  cex.main = 0.8,
+  cex.lab = 0.75,
+  cex.axis = 0.7
+)
+
+pacf(
+  d_us_gas,
+  main = "PACF of Differenced Log U.S. Gasoline Prices",
+  xlab = "Lag",
+  ylab = "Partial Autocorrelation",
+  lwd = 1.5,
+  cex.main = 0.8,
+  cex.lab = 0.75,
+  cex.axis = 0.7
+)
+
+par(mfrow = c(1, 1))
+```
+
+```{r}
+#| echo: false
 # Hold out the last 4 weeks for a simple forecast check
 forecast_horizon <- 4
 n_gas <- length(d_us_gas)
 
 train_d_us_gas <- window(d_us_gas, end = time(d_us_gas)[n_gas - forecast_horizon])
 test_d_us_gas <- window(d_us_gas, start = time(d_us_gas)[n_gas - forecast_horizon + 1])
+```
 
-# Fit AR(2) model
-fit_ar2_gas <- arima(train_d_us_gas, order = c(2, 0, 0))
+```{r}
+#| echo: false
+#| include: false
+auto.arima(train_d_us_gas)
+fit_arima_gas <- arima(train_d_us_gas, order = c(4, 0, 1))
+```
 
-# Forecast the held-out period
-fc_ar2_gas <- forecast(fit_ar2_gas, h = forecast_horizon, level = 95)
+The fitted ARIMA(4,0,1) model for U.S. gasoline prices is
 
+$$
+x_t=0.0007+ 1.4864x_{t-1}- 0.4766x_{t-2}+ 0.0610x_{t-3}- 0.1000x_{t-4}+ w_t- 0.9597w_{t-1}.
+$$
+
+The positive coefficient on $x_{t-1}$ suggests that an increase in gasoline prices in one week tends to be followed by an increase the following week. The negative coefficient on $x_{t-2}$ suggests that part of this effect reverses after two weeks. The coefficients on $x_{t-3}$ and $x_{t-4}$ are smaller, indicating weaker dependence on changes from three and four weeks earlier. Overall, the combination of positive and negative autoregressive coefficients suggests a short-run oscillating pattern in gasoline price changes.
+
+The large negative moving average coefficient indicates that a positive shock in one week tends to be followed by a negative correction in the next week.
+
+The diagnostic plots do not suggest any major concerns with the fitted model. The observed and fitted values are reasonably well aligned, indicating that the model captures the main patterns in the differenced gasoline price series. The residual ACF and PACF show little remaining autocorrelation, with only a few isolated spikes outside the confidence bounds; given the large number of lags examined, a small number of such spikes is expected by chance.
+
+#### STEVE LOOK
+
+The residuals over time contain some larger shocks, but these correspond to periods of unusually large gasoline price movements and likely reflect external events rather than model misspecification. The QQ plot indicates heavier tails than would be expected under a normal distribution. However, this behavior is common in financial and commodity price series and does not appear to indicate a serious problem with the model.
+
+```{r}
+#| echo: false
+# Fitted values and residuals for ARIMA(4,0,1)
+fitted_gas_401 <- fitted(fit_arima_gas)
+
+fit_gas_401 <- ts(
+  as.numeric(fitted_gas_401),
+  start = start(train_d_us_gas),
+  frequency = frequency(train_d_us_gas)
+)
+
+obs_gas_401 <- window(
+  train_d_us_gas,
+  start = start(fit_gas_401),
+  end = end(fit_gas_401)
+)
+
+gas_resid_401 <- residuals(fit_arima_gas)
+
+par(mfrow = c(3, 2), mar = c(4, 4, 3, 1), cex.main = 0.85)
+
+# 1. Observed vs fitted over time
+plot(
+  obs_gas_401,
+  type = "l",
+  col = "black",
+  lwd = 1.2,
+  main = "Observed and Fitted Gasoline Changes",
+  xlab = "Time",
+  ylab = "Differenced Log Gasoline"
+)
+lines(
+  fit_gas_401,
+  col = "red",
+  lwd = 1.2
+)
+legend(
+  "topright",
+  legend = c("Observed", "Fitted"),
+  col = c("black", "red"),
+  lwd = 1.2,
+  bty = "n",
+  cex = 0.75
+)
+
+# 2. Observed versus fitted scatterplot
+plot(
+  as.numeric(obs_gas_401),
+  as.numeric(fit_gas_401),
+  pch = 16,
+  cex = 0.5,
+  main = "Observed versus Fitted Values",
+  xlab = "Observed",
+  ylab = "Fitted"
+)
+abline(0, 1, col = "red", lwd = 1.2)
+legend(
+  "topleft",
+  legend = paste(
+    "Correlation =",
+    round(cor(as.numeric(obs_gas_401), as.numeric(fit_gas_401)), 3)
+  ),
+  bty = "n",
+  cex = 0.75
+)
+
+# 3. Residuals over time
+plot(
+  gas_resid_401,
+  type = "l",
+  col = "black",
+  lwd = 1.2,
+  main = "Residuals from ARIMA(4,0,1)",
+  xlab = "Time",
+  ylab = "Residual"
+)
+abline(h = 0, col = "red", lwd = 1.2, lty = 2)
+
+# 4. Residual ACF
+acf(
+  gas_resid_401,
+  main = "ACF of Residuals",
+  xlab = "Lag",
+  ylab = "Autocorrelation",
+  lwd = 1.2
+)
+
+# 5. Residual PACF
+pacf(
+  gas_resid_401,
+  main = "PACF of Residuals",
+  xlab = "Lag",
+  ylab = "Partial Autocorrelation",
+  lwd = 1.2
+)
+
+# 6. Residual QQ plot
+qqnorm(
+  gas_resid_401,
+  main = "Normal QQ Plot of Residuals",
+  xlab = "Theoretical Quantiles",
+  ylab = "Sample Quantiles",
+  pch = 16,
+  cex = 0.5
+)
+qqline(
+  gas_resid_401,
+  col = "red",
+  lwd = 1.2
+)
+
+par(mfrow = c(1, 1))
+```
+
+#### STEVE LOOK
+
+The forecast is particularly interesting because the holdout period occurs during a period of unusually high gasoline prices and substantial market shocks. As a result, the model does not fully capture the initial sharp increase in the differenced gasoline price series. However, as gasoline prices begin to decline near the end of the four week forecast period, the forecasted values move much closer to the observed values. This suggests that the model is better able to capture the underlying dynamics of the series once the extreme shock begins to subside.
+
+```{r fig-gas-ar-model, fig.cap = "The ARIMA(4,0,1) model does not fully capture the unusually large shocks in gasoline prices, but its forecasts become much closer to the observed values once prices begin to decline."}
+
+# 4-week forecast from the fitted ARIMA(4,0,1) model
+fc_gas <- predict(fit_arima_gas, n.ahead = forecast_horizon)
+
+# Convert forecasts and intervals to ts objects aligned with the test period
 fc_mean_ts <- ts(
-  as.numeric(fc_ar2_gas$mean),
+  fc_gas$pred,
   start = start(test_d_us_gas),
   frequency = frequency(test_d_us_gas)
 )
 
-fc_lower_ts <- ts(
-  as.numeric(fc_ar2_gas$lower[, 1]),
+fc_se_ts <- ts(
+  fc_gas$se,
   start = start(test_d_us_gas),
   frequency = frequency(test_d_us_gas)
 )
 
-fc_upper_ts <- ts(
-  as.numeric(fc_ar2_gas$upper[, 1]),
-  start = start(test_d_us_gas),
-  frequency = frequency(test_d_us_gas)
-)
+fc_lower_ts <- fc_mean_ts - 1.96 * fc_se_ts
+fc_upper_ts <- fc_mean_ts + 1.96 * fc_se_ts
 
-# Show recent history leading into the forecast origin
+# Show the last 20 weeks before the forecast origin plus the test period
 weeks_of_history <- 20
 tail_start_time <- time(d_us_gas)[n_gas - forecast_horizon - weeks_of_history + 1]
-actual_tail_ts <- window(d_us_gas, start = tail_start_time)
+
+actual_tail_ts <- window(
+  d_us_gas,
+  start = tail_start_time
+)
 
 plot(
   actual_tail_ts,
   type = "l",
   lwd = 2,
-  main = "AR(2) Forecast vs. Actual Near the Series End",
+  col = "black",
+  main = "ARIMA(4,0,1) Forecast Versus Actual",
   xlab = "Time",
-  ylab = "Differenced Log Gasoline",
-  ylim = range(c(actual_tail_ts, fc_mean_ts, fc_lower_ts, fc_upper_ts))
+  ylab = "Differenced Log U.S. Gasoline",
+  ylim = range(
+    c(actual_tail_ts, fc_mean_ts, fc_lower_ts, fc_upper_ts)
+  )
 )
+
+# Actual held out values
+lines(test_d_us_gas, lwd = 2, col = "black")
+
+# Forecast mean and 95% interval
 lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
 lines(fc_lower_ts, lty = 3, col = "blue")
 lines(fc_upper_ts, lty = 3, col = "blue")
+
+# Forecast origin
 abline(v = time(test_d_us_gas)[1], lty = 2)
+
 legend(
   "topleft",
-  legend = c("Actual", "Forecast", "95% interval", "Forecast origin"),
+  legend = c("Actual", "Forecast", "95% Interval", "Forecast Origin"),
+  col = c("black", "red", "blue", "black"),
   lty = c(1, 2, 3, 2),
   lwd = c(2, 2, 1, 1),
   bty = "n"
@@ -296,9 +510,8 @@ legend(
 
 ## Gasoline-Oil Prices VAR(2) Model
 
-After log-differencing US gasoline prices and Brent crude oil prices, the fitted VAR(2) model for US gasoline model is $gas_t = 0.411722 \times gas_{t-1} + 0.093528 \times oil_{t-1} + 0.141533 \times gas_{t-2} - 0.023122 \times oil_{t-2}$.
-
 ```{r}
+#| echo: false
 # First differences of log prices
 d_us_gas_overlap <- diff(log(gas_ts_brent_overlap))
 d_brent <- diff(log(brent_ts))
@@ -307,46 +520,507 @@ d_brent <- diff(log(brent_ts))
 gas_brent_diff_dates <- gas_brent_df$Date[-1]
 ```
 
-Based on Figure \@ref(fig:fig-ccf-brent), the cross-correlation function peaks at lag 0, which means gasoline and Brent often move strongly within the same week. There are also positive correlations at negative lags, especially around -1 to -3, which is consistent with Brent changes showing up in gasoline prices over the following weeks.
+The Brent crude oil price series was log-transformed and differenced in the same manner as the gasoline price series and exhibited a similar approximate stationary structure. Based on Figure \@ref(fig:fig-ccf-brent), the cross-correlation function peaks at lag 0, which means gasoline and Brent often move strongly within the same week. There are also positive correlations at negative lags, especially around -1 to -3, which is consistent with Brent changes showing up in gasoline prices over the following weeks.
 
+```{r}
+#| echo: false
+# Hold out the last 4 weeks for forecasting to match the ARIMA analysis
+forecast_horizon <- 4
+n_overlap <- length(d_us_gas_overlap)
+
+train_d_us_gas_overlap <- window(
+  d_us_gas_overlap,
+  end = time(d_us_gas_overlap)[n_overlap - forecast_horizon]
+)
+
+test_d_us_gas_overlap <- window(
+  d_us_gas_overlap,
+  start = time(d_us_gas_overlap)[n_overlap - forecast_horizon + 1]
+)
+
+train_d_brent <- window(
+  d_brent,
+  end = time(d_brent)[n_overlap - forecast_horizon]
+)
+
+test_d_brent <- window(
+  d_brent,
+  start = time(d_brent)[n_overlap - forecast_horizon + 1]
+)
+```
+
+```{r}
+#| echo: false
+#| include: false
+# Differenced log oil prices plots
+plot(
+  d_brent,
+  type = "l",
+  col = "steelblue",
+  lwd = 2,
+  main = "Differenced Log U.S. Gasoline Prices",
+  xlab = "Time",
+  ylab = "Differenced Log U.S. Gasoline Price"
+)
+
+abline(h = 0, col = "darkred", lwd = 2, lty = 2)
+grid(col = "lightgray", lty = "dotted")
+
+mtext(
+  "The series appears approximately stationary.",
+  side = 1,
+  line = 4,
+  cex = 0.9,
+  col = "gray30"
+)
+```
 
 ```{r fig-ccf-brent, fig.cap = "Label goes here"}
 # Negative lag means Brent leads gasoline
+# Use only the training sample when examining CCF
 ccf(
-  d_brent, d_us_gas_overlap,
+  train_d_brent,
+  train_d_us_gas_overlap,
   lag.max = 12,
-  main = "CCF: Brent vs. U.S. Gasoline (Differenced Log Prices)"
-)
-# Bivariate stationary series for VAR analysis
-oil_var_ts <- cbind(
-  Gasoline = d_us_gas_overlap,
-  Brent = d_brent
+  main = "CCF: Brent vs. U.S. Gasoline (Training Sample)"
 )
 ```
 
+```{r}
+#| echo: false
+# Bivariate stationary training series for VAR analysis
+oil_var_train_ts <- cbind(
+  Gasoline = train_d_us_gas_overlap,
+  Brent = train_d_brent
+)
+```
 
-```{r tbl-criterion-one, tbl.cap = "Label goes here"}
-var_analysis <- VARselect(oil_var_ts, lag.max = 8, type = "none")
+From the available candidate models, the lowest-order model, a VAR(2), provided sufficiently good diagnostic results and was therefore selected.
+
+```{r tbl-criterion-one, tbl.cap = "Candidate Model Orders for VAR"}
+var_analysis <- VARselect(oil_var_train_ts, lag.max = 8, type = "none")
 # Candidate lag lengths
 gt::gt(as.data.frame(t(var_analysis$selection),
                      check.names = F))
-fit_var_oil <- VAR(oil_var_ts, p = 2, type = "none")
-resid_oil  <- resid(fit_var_oil)
 ```
 
+```{r}
+#| echo: false
+fit_var_oil <- VAR(oil_var_train_ts, p = 2, type = "none")
+```
+
+The fitted VAR(2) model was
+
+$$
+\text{Gasoline}_t
+=
+0.4115\,\text{Gasoline}_{t-1}
++0.0946\,\text{Brent}_{t-1}
++0.1393\,\text{Gasoline}_{t-2}
+-0.0242\,\text{Brent}_{t-2}
++w_{1,t},
+$$
+
+and
+
+$$
+\text{Brent}_t
+=
+-0.0095\,\text{Gasoline}_{t-1}
++0.2547\,\text{Brent}_{t-1}
++0.2799\,\text{Gasoline}_{t-2}
+-0.0926\,\text{Brent}_{t-2}
++w_{2,t}.
+$$
+
+In the gasoline equation, we can see clearly that gasoline prices are strongly driven by both their own pastvalues and past Brent prices. The positive coefficients on gasoline at lags 1 and 2 suggest that increases in gasoline prices tend to persist for several weeks. The positive coefficient on Brent crude oil at lag 1 indicates that increases in crude oil prices are followed by increases in gasoline prices in the following week. The negative coefficient on Brent at lag 2 suggests a partial correction after two weeks, so that some of the initial effect of a crude oil shock reverses over time.
+
+Similarly, in the Brent equation, the positive coefficient on Brent at lag 1 suggests persistence in crude oil prices, while the negative coefficient on Brent at lag 2 suggests that part of this effect reverses after two weeks. The coefficient on gasoline at lag 1 is small and not statistically significant. However, gasoline at lag 2 appears as a statistically significant positive predictor of Brent prices. Gasoline prices do not logically drive crude oil prices, so the significance of lagged gasoline in the Brent equation should not be interpreted as a true causal effect. Instead, this likely reflects the fact that both series respond to common external factors, such as overall energy demand, supply disruptions, geopolitical events, or broader macroeconomic conditions. Because gasoline and crude oil prices move together over time, the model can identify statistically significant relationships even when they do not make economic sense as causal effects.
+
+To further support this interpretation, the model fit appears stronger for the gasoline equation than for the Brent equation. The observed versus fitted plot for gasoline shows a higher correlation, indicating that the model explains a larger portion of the variation in gasoline prices. In contrast, the Brent equation has a weaker fit and the QQ plot for the Brent residuals shows greater deviation from normality.
+
+```{r}
+#| echo: false
+# Fitted values and residuals from the VAR(2) model
+fitted_oil <- fitted(fit_var_oil)
+resid_var <- residuals(fit_var_oil)
+
+# Gasoline observed, fitted, and residuals
+obs_gas_var <- window(
+  oil_var_train_ts[, "Gasoline"],
+  start = time(oil_var_train_ts)[3]
+)
+
+fit_gas_var <- ts(
+  fitted_oil[, "Gasoline"],
+  start = start(obs_gas_var),
+  frequency = frequency(obs_gas_var)
+)
+
+resid_gas_var <- resid_var[, "Gasoline"]
+
+# Brent observed, fitted, and residuals
+obs_brent_var <- window(
+  oil_var_train_ts[, "Brent"],
+  start = time(oil_var_train_ts)[3]
+)
+
+fit_brent_var <- ts(
+  fitted_oil[, "Brent"],
+  start = start(obs_brent_var),
+  frequency = frequency(obs_brent_var)
+)
+
+resid_brent_var <- resid_var[, "Brent"]
+
+par(mfrow = c(2, 2), mar = c(4, 4, 3, 1), cex.main = 0.9)
+
+# 1. Gasoline observed vs fitted
+plot(
+  as.numeric(obs_gas_var),
+  as.numeric(fit_gas_var),
+  pch = 16,
+  cex = 0.5,
+  main = "Gasoline: Observed versus Fitted",
+  xlab = "Observed Differenced Log Gasoline",
+  ylab = "Fitted Differenced Log Gasoline"
+)
+abline(0, 1, col = "red", lwd = 1.5)
+legend(
+  "topleft",
+  legend = paste(
+    "Correlation =",
+    round(cor(as.numeric(obs_gas_var), as.numeric(fit_gas_var)), 3)
+  ),
+  bty = "n",
+  cex = 0.8
+)
+
+# 2. Brent observed vs fitted
+plot(
+  as.numeric(obs_brent_var),
+  as.numeric(fit_brent_var),
+  pch = 16,
+  cex = 0.5,
+  main = "Brent: Observed versus Fitted",
+  xlab = "Observed Differenced Log Brent",
+  ylab = "Fitted Differenced Log Brent"
+)
+abline(0, 1, col = "red", lwd = 1.5)
+legend(
+  "topleft",
+  legend = paste(
+    "Correlation =",
+    round(cor(as.numeric(obs_brent_var), as.numeric(fit_brent_var)), 3)
+  ),
+  bty = "n",
+  cex = 0.8
+)
+
+# 3. Gasoline QQ plot
+qqnorm(
+  resid_gas_var,
+  main = "Gasoline Residual Q-Q Plot",
+  xlab = "Theoretical Quantiles",
+  ylab = "Sample Quantiles",
+  pch = 16,
+  cex = 0.5
+)
+qqline(resid_gas_var, col = "red", lwd = 1.5)
+
+# 4. Brent QQ plot
+qqnorm(
+  resid_brent_var,
+  main = "Brent Residual Q-Q Plot",
+  xlab = "Theoretical Quantiles",
+  ylab = "Sample Quantiles",
+  pch = 16,
+  cex = 0.5
+)
+qqline(resid_brent_var, col = "red", lwd = 1.5)
+
+par(mfrow = c(1, 1))
+```
+
+#### STEVE LOOK
+
+The VAR(2) forecast is farther from the observed gasoline values than the ARIMA(4,0,1) forecast, even after gasoline prices begin to decline near the end of the forecast period. The VAR model predicts that the differenced gasoline series will quickly return toward zero.
+
+This may occur because the VAR model incorporates Brent crude oil prices in addition to gasoline prices. During periods of large gasoline price shocks, the relationship between crude oil and gasoline may weaken. Gasoline prices may be driven by additional factors such as refinery or transportation disruptions, local supply shortages or sudden changes in demand that are not captured by Brent crude oil prices alone.
+
+In contrast, the ARIMA(4,0,1) model relies only on the recent history of gasoline prices. Because the recent gasoline observations remain elevated, the ARIMA model is better able to continue the high-price pattern into the forecast period and therefore remains closer to the observed values.
+
+```{r fig-gas-var-model, fig.cap = "The VAR model predicts further away than the ARIMA."}
+# 4-week ahead forecast
+fc_var_oil <- predict(fit_var_oil, n.ahead = forecast_horizon)
+
+# Extract gasoline forecasts and intervals
+fc_var_mean_ts <- ts(
+  fc_var_oil$fcst$Gasoline[, "fcst"],
+  start = start(test_d_us_gas_overlap),
+  frequency = frequency(test_d_us_gas_overlap)
+)
+
+fc_var_lower_ts <- ts(
+  fc_var_oil$fcst$Gasoline[, "lower"],
+  start = start(test_d_us_gas_overlap),
+  frequency = frequency(test_d_us_gas_overlap)
+)
+
+fc_var_upper_ts <- ts(
+  fc_var_oil$fcst$Gasoline[, "upper"],
+  start = start(test_d_us_gas_overlap),
+  frequency = frequency(test_d_us_gas_overlap)
+)
+
+# Plot the last 20 weeks plus the 4-week forecast period
+weeks_of_history <- 20
+tail_start_time <- time(d_us_gas_overlap)[n_overlap - forecast_horizon - weeks_of_history + 1]
+
+actual_tail_ts <- window(
+  d_us_gas_overlap,
+  start = tail_start_time
+)
+
+plot(
+  actual_tail_ts,
+  type = "l",
+  lwd = 2,
+  col = "black",
+  main = "VAR Forecast Versus Actual",
+  xlab = "Time",
+  ylab = "Differenced Log U.S. Gasoline",
+  ylim = range(
+    c(actual_tail_ts, fc_var_mean_ts, fc_var_lower_ts, fc_var_upper_ts)
+  )
+)
+
+axis(
+  side = 1,
+  at = axTicks(1)[-1]
+)
+
+# Actual held-out gasoline values
+lines(test_d_us_gas_overlap, lwd = 2, col = "black")
+
+# VAR forecast and 95% interval
+lines(fc_var_mean_ts, lwd = 2, lty = 2, col = "red")
+lines(fc_var_lower_ts, lty = 3, col = "blue")
+lines(fc_var_upper_ts, lty = 3, col = "blue")
+
+# Forecast origin
+abline(v = time(test_d_us_gas_overlap)[1], lty = 2)
+
+legend(
+  "topleft",
+  legend = c("Actual", "Forecast", "95% Interval", "Forecast Origin"),
+  col = c("black", "red", "blue", "black"),
+  lty = c(1, 2, 3, 2),
+  lwd = c(2, 2, 1, 1),
+  bty = "n"
+)
+```
 
 ## Regional Gasoline Prices VAR(1) Model
 
+For the regional comparison, we identified a low order VAR(1) model using the same methods as for oil vs gas. The CCF plots followed very similar structure to the one seen before with a mix of positive and negative lags. The fit of the VAR(1) model was validated by diagnostics which showed no reason for concern.
+
+```{r}
+#| echo: false
+#| include: false
+d_regions <- diff(log(region_var_ts))
+colnames(d_regions) <- colnames(region_var_ts)
+
+region_diff_dates <- gas_df$Date[-1]
+
+for (series_name in colnames(d_regions)) {
+  plot(d_regions[, series_name],
+       main = paste("Differenced Log", gsub("_", " ", series_name)),
+       ylab = "Log difference",
+       xlab = "Time")
+  abline(h = 0, lty = 2, col = "gray50")
+
+  par(mfrow = c(1, 2))
+  acf(d_regions[, series_name],
+      lag.max = 20,
+      main = paste("ACF:", gsub("_", " ", series_name)))
+  pacf(d_regions[, series_name],
+       lag.max = 20,
+       main = paste("PACF:", gsub("_", " ", series_name)))
+  par(mfrow = c(1, 1))
+}
+
+# Pairwise CCFs for all 10 regional pairs
+region_pairs <- combn(colnames(d_regions), 2, simplify = FALSE)
+
+# Show Midwest pairs first because they are especially informative in the plots
+region_pairs <- c(
+  Filter(function(x) "Midwest" %in% x, region_pairs),
+  Filter(function(x) !("Midwest" %in% x), region_pairs)
+)
+
+region_pairs <- lapply(region_pairs, function(pair) {
+  if ("Midwest" %in% pair) {
+    c("Midwest", setdiff(pair, "Midwest"))
+  } else {
+    pair
+  }
+})
+
+par(
+  mfrow = c(2, 2),          # or another layout
+  mar = c(3, 3, 2, 1),      # smaller margins
+  oma = c(0, 0, 1, 0)
+)
+
+for (pair in region_pairs) {
+  ccf(
+    d_regions[, pair[1]],
+    d_regions[, pair[2]],
+    lag.max = 12,
+    main = paste(
+      gsub("_", " ", pair[1]),
+      "vs.",
+      gsub("_", " ", pair[2])
+    ),
+    cex.main = 0.9,
+    cex.axis = 0.8,
+    cex.lab = 0.8
+  )
+}
+
+par(mfrow = c(1, 1))
+
+region_model_ts <- d_regions
+
+# Candidate lag lengths
+VARselect(region_model_ts, lag.max = 8, type = "const")
+
+# Fit the regional VAR(1)
+fit_var_regions <- VAR(region_model_ts, p = 1, type = "const")
+summary(fit_var_regions)
+
+# Fitted values and residuals
+fitted_regions <- fitted(fit_var_regions)
+resid_regions  <- resid(fit_var_regions)
+p_used <- fit_var_regions$p
+
+# Observed vs. fitted plots for each region
+for (series_name in colnames(region_model_ts)) {
+  obs_ts <- window(region_model_ts[, series_name], start = time(region_model_ts)[p_used + 1])
+  fit_ts <- ts(fitted_regions[, series_name],
+               start = start(obs_ts),
+               frequency = frequency(obs_ts))
+
+  par(mfrow = c(1, 2))
+
+  plot(obs_ts, type = "l", col = "black",
+       main = paste("Observed vs. Fitted:", gsub("_", " ", series_name)),
+       ylab = "",
+       xlab = "Time")
+  lines(fit_ts, col = "red")
+
+  plot(obs_ts, fit_ts,
+       pch = 16,
+       xlab = "Observed",
+       ylab = "Fitted",
+       main = gsub("_", " ", series_name))
+  abline(0, 1, col = "red", lwd = 2)
+  legend("topleft",
+         legend = paste("Correlation:", round(cor(obs_ts, fit_ts), 3)),
+         bty = "n")
+
+  par(mfrow = c(1, 1))
+}
+
+# Residual series and ACFs
+for (series_name in colnames(resid_regions)) {
+  par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
+
+  plot(ts(resid_regions[, series_name],
+          start = time(region_model_ts)[p_used + 1],
+          frequency = frequency(region_model_ts)),
+       type = "l",
+       main = paste("Residuals:", gsub("_", " ", series_name)),
+       ylab = "",
+       xlab = "Time",
+       ylim = c(-0.2, 0.2))
+  abline(h = 0, lty = 2, col = "gray")
+
+  acf(resid_regions[, series_name],
+      main = paste("ACF Residuals:", gsub("_", " ", series_name)))
+
+  par(mfrow = c(1, 1))
+}
+
+
+```
+
+#### STEVE LOOK
+
+The regional VAR(1) model suggested that gasoline prices are highly interconnected across regions, with the strongest relationships centered around the Midwest, Gulf Coast, and West Coast. West Coast and Rocky Mountain prices were primarily driven by their own past values, indicating more localized dynamics.
+
+### need to double check values
+
+```{r}
+library(gt)
+library(tibble)
+
+lead_lag_summary <- tibble(
+  Type = c(
+    "Autocorrelation",
+    "Autocorrelation",
+    "Cross-Correlation",
+    "Cross-Correlation",
+    "Cross-Correlation"
+  ),
+  `Lagged Relationship` = c(
+    "West Coast[t-1] → West Coast[t]",
+    "Midwest[t-1] → Midwest[t]",
+    "Midwest[t-1] → Gulf Coast[t]",
+    "East Coast[t-1] → Midwest[t]",
+    "West Coast[t-1] → Rocky Mountain[t]"
+  ),
+  Coefficient = c(
+    0.567,
+    0.321,
+    0.304,
+    -0.303,
+    0.289
+  )
+)
+
+lead_lag_summary |>
+  gt() |>
+  fmt_number(
+    columns = Coefficient,
+    decimals = 3
+  ) |>
+  cols_align(
+    align = "center",
+    columns = everything()
+  ) |>
+  tab_header(
+    title = md("**Strongest Regional Lead-Lag Relationships**"),
+    subtitle = "Largest autocorrelation and cross-correlation coefficients from the VAR(1) model"
+  ) |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_body(
+      columns = Type
+    )
+  )
+```
+
 # Discussion
 
-## AR(2) Model
+## ARIMA(4,0,1) Model
 
-The forecast plot in Figure \@ref(fig:fig-gas-ar-model) show the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly. 
+The forecast plot in Figure \@ref(fig:fig-gas-ar-model) show the main limitation of this univariate model. The 4-week forecasts quickly revert toward zero and miss the sharp movement at the end of the sample. Even though the observed values remain inside the forecast interval, the point forecasts are too smooth to track the sudden change. This suggests that a model based only on past gasoline prices is not enough when market conditions shift quickly.
 
 ## Diagnostics - VAR(2) Model
 
-The largest residuals for US gasoline prices in Figure \@ref(fig:fig-gas-resids) are due to external shocks that are outside the scope of this model. The first peak in October 2005 is due to Hurricane Katrina, which damaged oil refineries in the gulf coast, leading to spikes in gasoline prices. The shock at November 2008 is due to the financial crisis, which decreased gasoline demand and lead to lower prices. The residual at October 2017 corresponds to OPEC announcing supply cut for oil, leading to higher prices. In April 2022, sanctions on Russian oil lead to higher prices. Finally, during April 2026, oil prices have increased since the Straight of Hormuz is 
-blocked. The residuals for Brent oil prices and regional gas prices have similarly timed residuals, corresponding to the same events.
+The largest residuals for US gasoline prices in Figure \@ref(fig:fig-gas-resids) are due to external shocks that are outside the scope of this model. The first peak in October 2005 is due to Hurricane Katrina, which damaged oil refineries in the gulf coast, leading to spikes in gasoline prices. The shock at November 2008 is due to the financial crisis, which decreased gasoline demand and lead to lower prices. The residual at October 2017 corresponds to OPEC announcing supply cut for oil, leading to higher prices. In April 2022, sanctions on Russian oil lead to higher prices. Finally, during April 2026, oil prices have increased since the Straight of Hormuz is blocked. The residuals for Brent oil prices and regional gas prices have similarly timed residuals, corresponding to the same events.
 
 ```{r fig-gas-resids, fig.cap = "The largest residuals correspond to historical events that cannot be reliably modeled."}
 plot_residuals_with_events <- function(res_vec, dates_vec, series_name,
@@ -399,8 +1073,8 @@ plot_residuals_with_events <- function(res_vec, dates_vec, series_name,
 
 # Gasoline
 plot_residuals_with_events(
-  res_vec = resid_oil[,1],
-  dates_vec = time(oil_var_ts)[-c(1,2)],
+  res_vec = resid_var[,1],
+  dates_vec = time(oil_var_train_ts)[-c(1,2)],
   series_name = "Gasoline",
   threshold_upper = 0.08,
   threshold_lower = -0.05,
@@ -408,13 +1082,13 @@ plot_residuals_with_events(
 )
 ```
 
-
 ## Diagnostics - VAR(1) Model
+
 ...
 
 \pagebreak
 
-# Appendix {-}
+# Appendix {.unnumbered}
 
 Notice how the appendix below gathers all the code blocks above and nicely pastes them together.
 
