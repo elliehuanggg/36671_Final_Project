@@ -30,23 +30,23 @@ knitr::opts_chunk$set(echo = FALSE) # set echo = FALSE to hide code from output
 
 # Executive summary {.unnumbered}
 
-This report analyzes the relationship of American gasoline prices with crude oil prices and comparing regional gasoline prices within the United States in order to model, forecast and understand gasoline price dynamics in the United States. These findings are based on two fitted VAR (vector autoregressive) models. The first VAR model is fit on US gasoline prices and Brent crude oil prices. The second VAR model is fit on the gasoline prices for 5 subregions of the United States: West Coast, Rocky Mountains, Midwest, Gulf Coast, and East Coast. Based on the findings, changes in the price of Brent crude oil from a week ago affect the price of gasoline in the US. Regional gasoline prices overall tend to move in conjunction with each other, but gasoline prices in the West Coast and the Rockies regions seem to be more driven by local impacts to the price, possibly due to higher transportation-related costs and policy-driven costs. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term as the prices regress to the mean. The strongest errors in the models are due to external shocks that are outside the scope of this model and could not be forecasted.
+This report analyzes the relationship of American gasoline prices with crude oil prices and the comparison of regional gasoline prices within the United States in order to model, forecast and understand gasoline price dynamics in the United States. These findings are based on two fitted VAR (vector autoregressive) models. The first VAR model is fit on US gasoline prices and Brent crude oil prices. The second VAR model is fit on the gasoline prices for 5 subregions of the United States: West Coast, Rocky Mountains, Midwest, Gulf Coast, and East Coast. Based on the findings, changes in the price of Brent crude oil from a week ago affect the price of gasoline in the US. Regional gasoline prices overall tend to move in conjunction with each other, but gasoline prices in the West Coast and the Rockies regions seem to be more driven by local impacts to the price, possibly due to higher transportation-related costs and policy-driven costs. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term as the prices regress to the mean. The strongest errors in the models are due to external shocks that are outside the scope of this model and could not be forecasted.
 
 # Introduction
 
-This analysis explores gasoline price dynamics by analyzing the relationship of American gasoline prices with crude oil prices and comparing regional gasoline prices within the United States. The main research questions are:
+This analysis explores gasoline price dynamics by analyzing the relationship of American gasoline prices with crude oil prices and the comparison of regional gasoline prices within the United States. The main research questions are:
 
 -   How do Brent crude oil price changes pass through to U.S. retail gasoline prices, and over what time range does this occur?
 
 -   How do regional gasoline prices co-move over time? Are there lead–lag relationships between regions?
 
+This analysis helps explain how crude oil shocks affect consumer fuel prices and inflation. Forecasting this relationship can improve pricing expectations, support policy and business planning, and help anticipate the impact of supply disruptions or geopolitical events.
+
 Based on the findings, changes in the price of Brent crude oil affect the price of gasoline in the US at a one-week lag. Regional gasoline prices are correlated and move in conjunction with each other, especially in the Midwest, Gulf Coast and East Coast. Gasoline prices in the West Coast and the Rockies regions have less correlation with the other regions, especially during larger shocks, implying more local impacts to the price. The West Coast and Rockies regions may have higher transportation-related costs and policy-driven costs, such as tax. Forecasts predict a decrease in gasoline and Brent crude oil prices in the short term with the best prediction being the mean in the long term.
 
 ## Data
 
-**ADD CITATIONS**
-
-The main data sources are the weekly U.S. gasoline prices from the U.S. Energy Information Administration [@eia_gas_prices_2026] and Brent crude oil prices from Yahoo Finance [@Yahoo_Finance] (pulled through Python's yfinance package [@yfinance_py]). The weekly U.S. gasoline prices include gasoline prices for overall country and regional prices. The time period for the data is from 1994 to 2025 at a weekly frequency. This is a total of 1722 observations for each time series. Brent crude is the main input cost for gasoline, so changes in oil prices often pass through to pump prices with a lag. Regional gasoline data also captures differences in refining capacity, transportation, and local supply constraints. The regions are East Coast, Midwest, Gulf Coast, Rocky Mountains, and West Coast. This analysis helps explain how crude oil shocks affect consumer fuel prices and inflation. Forecasting this relationship can improve pricing expectations, support policy and business planning, and help anticipate the impact of supply disruptions or geopolitical events.
+The main data sources are the weekly U.S. gasoline prices from the U.S. Energy Information Administration [@eia_gas_prices_2026] and Brent crude oil prices from Yahoo Finance [@Yahoo_Finance], which is pulled through Python's yfinance package [@yfinance_py]. The weekly U.S. gasoline prices include gasoline prices for overall country and regional prices. The time period for the data is from 1994 to 2026 at a weekly frequency. This is a total of 1722 observations for each time series. Brent crude is the main input cost for gasoline, so changes in oil prices often pass through to pump prices with a lag. Regional gasoline data also captures differences in refining capacity, transportation, and local supply constraints. The regions are East Coast, Midwest, Gulf Coast, Rocky Mountains, and West Coast.
 
 # Methods
 
@@ -323,7 +323,7 @@ The large negative moving average coefficient indicates that a positive shock in
 
 The diagnostic plots in Figure \@ref(fig:fig-gas-arima-diag) do not suggest any major concerns with the fitted model. The observed and fitted values are reasonably well aligned, indicating that the model captures the main patterns in the differenced gasoline price series. The residual ACF and PACF show little remaining autocorrelation, with only a few isolated spikes outside the confidence bounds; given the large number of lags examined, a small number of such spikes is expected by chance.
 
-#### STEVE LOOK
+#### 
 
 The residuals over time contain some larger shocks, but these correspond to periods of unusually large gasoline price movements and likely reflect external events rather than model misspecification. The QQ plot indicates heavier tails than would be expected under a normal distribution. However, this behavior is common in financial and commodity price series and does not appear to indicate a serious problem with the model.
 
@@ -441,7 +441,7 @@ qqline(
 par(mfrow = c(1, 1))
 ```
 
-#### STEVE LOOK
+#### 
 
 The forecast in Figure \@ref(fig:fig-gas-arima-model) is particularly interesting because the holdout period occurs during a period of unusually high gasoline prices and substantial market shocks. As a result, the model does not fully capture the initial sharp increase in the logged and differenced gasoline price series. However, as gasoline prices begin to decline near the end of the four week forecast period, the forecasted values move much closer to the observed values. This suggests that the model is better able to capture the underlying dynamics of the series once the extreme shock begins to subside.
 
@@ -596,18 +596,17 @@ oil_var_train_ts <- cbind(
 )
 ```
 
-From the available candidate models in Table 1, the lowest-order model, a VAR(2), provided sufficiently good diagnostic results and was therefore selected.
-
-```{r tbl-criterion-one, tbl.cap = "Candidate Model Orders for VAR"}
+```{r}
 var_analysis <- VARselect(oil_var_train_ts, lag.max = 8, type = "none")
-# Candidate lag lengths
-gt::gt(as.data.frame(t(var_analysis$selection),
-                     check.names = F)) |>
-  gt::tab_header(
-    title = "",
-    subtitle = gt::md("**Table 1: Candidate Model Orders for VAR**"),
-  )
 ```
+
+From the available candidate models in Table \@ref(tab:info-criterion), the lowest-order model, a VAR(2), provided sufficiently good diagnostic results and was therefore selected.
+
+| AIC(n) | HQ(n) | SC(n) | FPE(n) |
+|--------|-------|-------|--------|
+| 5      | 3     | 2     | 5      |
+
+: Candidate model orders for VAR based on different information criteria. The simplest model was chosen for parsimony. (#tab:info-criterion)
 
 ```{r}
 #| echo: false
@@ -747,8 +746,6 @@ qqline(resid_brent_var, col = "red", lwd = 1.5)
 par(mfrow = c(1, 1))
 ```
 
-#### STEVE LOOK
-
 Figure \@ref(fig:fig-gas-var-model) shows the VAR(2) forecast is farther from the observed gasoline values than the ARIMA(4,0,1) forecast, even after gasoline prices begin to decline near the end of the forecast period. The VAR model predicts that the differenced gasoline series will quickly return toward zero.
 
 This may occur because the VAR model incorporates Brent crude oil prices in addition to gasoline prices. During periods of large gasoline price shocks, the relationship between crude oil and gasoline may weaken. Gasoline prices may be driven by additional factors such as refinery or transportation disruptions, local supply shortages or sudden changes in demand that are not captured by Brent crude oil prices alone.
@@ -828,7 +825,7 @@ legend(
 
 ## Regional Gasoline Prices VAR(1) Model
 
-For the regional comparison, we identified a low order VAR(1) model using the same methods as for Brent crude oil versus U.S. gasoline prices. Table 2 shows the strongest regional lead-lag relationships. The CCF plots followed very similar structure to the one seen before with a mix of positive and negative lags. The fit of the VAR(1) model was validated by diagnostics which showed no reason for concern.
+For the regional comparison, we identified a low order VAR(1) model using the same methods as for Brent crude oil versus U.S. gasoline prices. Table \@ref(tab:correlation) shows the strongest regional lead-lag relationships. The CCF plots followed very similar structure to the one seen before with a mix of positive and negative lags. The fit of the VAR(1) model was validated by diagnostics which showed no reason for concern.
 
 ```{r}
 #| echo: false
@@ -961,14 +958,9 @@ for (series_name in colnames(resid_regions)) {
 
 ```
 
-#### STEVE LOOK
-
 The regional VAR(1) model suggested that gasoline prices are highly interconnected across regions, with the strongest relationships centered around the Midwest, Gulf Coast, and West Coast. West Coast and Rocky Mountain prices were primarily driven by their own past values, indicating more localized dynamics.
 
-### need to double check values
-
 ```{r}
-library(gt)
 library(tibble)
 
 lead_lag_summary <- tibble(
@@ -994,28 +986,17 @@ lead_lag_summary <- tibble(
     0.289
   )
 )
-
-lead_lag_summary |>
-  gt() |>
-  fmt_number(
-    columns = Coefficient,
-    decimals = 3
-  ) |>
-  cols_align(
-    align = "center",
-    columns = everything()
-  ) |>
-  tab_header(
-    title = md("**Table 2: Strongest Regional Lead-Lag Relationships**"),
-    subtitle = "Largest autocorrelation and cross-correlation coefficients from the VAR(1) model"
-  ) |>
-  tab_style(
-    style = cell_text(weight = "bold"),
-    locations = cells_body(
-      columns = Type
-    )
-  )
 ```
+
+| Type              | Lagged Relationships | Coefficients |
+|-------------------|----------------------|--------------|
+| Auto-correlation  | $West\ Coast_{t-1} \rightarrow West\ Coast_{t}$ | 0.567        |
+| Auto-correlation  | $Midwest_{t-1} \rightarrow Midwest_{t}$ | 0.321        |
+| Cross-correlation |$Midwest_{t-1} \rightarrow Gulf\ Coast_{t}$| 0.304        |
+| Cross-correlation |$East\ Coast_{t-1} \rightarrow Midwest_{t}$| -.303        |
+| Cross-correlation |$West\ Coast_{t-1} \rightarrow Rocky\ Mountains_{t}$| 0.289        |
+
+: Of the strongest regional lead-lag relationships, the top autocorrelations are larger than the top cross-correlation coefficients from the VAR(1) model. (#tab:correlations)
 
 # Discussion
 
@@ -1088,17 +1069,21 @@ plot_residuals_with_events(
 ```
 
 ## Diagnostics - VAR(1) Model
+
 The residuals are a bit larger overall, especially during volatile periods, which suggests the model is not capturing everything. There is also more clustering in the residuals, meaning there are stretches where the model consistently under- or over-predicts. The same major events show up here as well, such as the spike from Hurrican Katrina in 2005 and the decline in demand and prices from the 2008 Financial Crisis, but with bigger errors, indicating that using only one lag is not enough to fully describe how prices evolve over time. There is also some remaining autocorrelation in the residuals, which again points to the model leaving some structure unexplained. Overall, the VAR(1) model works for the regional comparison.
 
 <!-- The VAR(1) model is simpler, but it misses some of the patterns that the VAR(2) model picks up. The residuals are a bit larger overall, especially during volatile periods, which suggests the model is not capturing everything. You can also see more clustering in the residuals, meaning there are stretches where the model consistently under- or over-predicts. The same major events show up here too, like the spike from Hurrican Katrina in 2005 and the decline in demand and prices from the 2008 Financial Crisis, but with bigger errors, indicating that using only one lag is not enough to fully describe how prices evolve over time. There is also some remaining autocorrelation in the residuals, which again points to the model leaving some structure unexplained. Overall, the VAR(1) model works, but it does not fit the data as well as the VAR(2). -->
 
 ## Overall Interpretation
+
 Putting everything together, a few key takeaways stand out. First, gasoline prices are closely tied to Brent crude oil, but the effect shows up with a short delay rather than immediately. Models that include oil prices capture this relationship better than those that do not. Second, gasoline prices across regions generally move together, which suggests a well-connected market. That said, regions like the West Coast and Rocky Mountains behave somewhat differently, likely due to local constraints like regulations and infrastructure. Third, all models struggle during periods of extreme volatility. The largest errors line up with major global events, showing that models based only on past prices miss important external factors. Overall, while the VAR(2) model takes into account oil prices and shows they are a significant predictor of gasoline prices, the ARIMA(4,0,1) model actually does a better job capturing the structure in the data when doing forecasts. Adding external variables would likely improve performance, especially during large shocks.
 
 <!-- Putting everything together, a few key takeaways stand out. First, gasoline prices are closely tied to Brent crude oil, but the effect shows up with a short delay rather than immediately. Models that include oil prices capture this relationship better than those that do not. Second, gasoline prices across regions generally move together, which suggests a well-connected market. That said, regions like the West Coast and Rocky Mountains behave somewhat differently, likely due to local constraints like regulations and infrastructure. Third, all models struggle during periods of extreme volatility. The largest errors line up with major global events, showing that models based only on past prices miss important external factors. Overall, the VAR(2) model does the best job capturing the structure in the data, while simpler models leave more unexplained variation. Adding external variables would likely improve performance, especially during large shocks. -->
 
 # References
-<div id="refs"></div>
+
+::: {#refs}
+:::
 
 \pagebreak
 
