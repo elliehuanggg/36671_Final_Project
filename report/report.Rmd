@@ -657,6 +657,30 @@ $$
 +w_{2,t}.
 $$
 
+
+As shown in Table \@ref(tab:brent-coeffs), ...
+
+| Variable | Coefficient | Significance |
+|--------|-------|-------|
+| $Gasoline_{t-1}$| -0.0095 | No |
+| $Brent_{t-1}$| +0.2547 | Yes |
+| $Gasoline_{t-2}$| +0.2799 | Yes |
+| $Brent_{t-2}$| -0.0926 | Yes |
+
+: For the Brent equation, only gasoline prices at a one-week lag are not significant. (#tab:brent-coeffs)
+
+As shown in Table \@ref(tab:gas-coeffs), ...
+
+| Variable | Coefficient | Significance |
+|--------|-------|-------|
+| $Gasoline_{t-1}$| 0.4115 | Yes |
+| $Brent_{t-1}$| +0.0946 | Yes |
+| $Gasoline_{t-2}$| +0.1393 | Yes |
+| $Brent_{t-2}$| -0.0242 | Yes |
+
+: For the gas equation, all coefficients are statistically significant. (#tab:gas-coeffs)
+
+
 In the gasoline equation, we can see clearly that gasoline prices are strongly driven by both their own past values and past Brent prices. The positive coefficients on gasoline at lags 1 and 2 suggest that increases in gasoline prices tend to persist for several weeks. The positive coefficient on Brent crude oil at lag 1 indicates that increases in crude oil prices are followed by increases in gasoline prices in the following week. The negative coefficient on Brent at lag 2 suggests a partial correction after two weeks, so that some of the initial effect of a crude oil shock reverses over time.
 
 Similarly, in the Brent equation, the positive coefficient on Brent at lag 1 suggests persistence in crude oil prices, while the negative coefficient on Brent at lag 2 suggests that part of this effect reverses after two weeks. The coefficient on gasoline at lag 1 is small and not statistically significant. However, gasoline at lag 2 appears as a statistically significant positive predictor of Brent prices. Gasoline prices do not logically drive crude oil prices, so the significance of lagged gasoline in the Brent equation should not be interpreted as a true causal effect. Instead, this likely reflects the fact that both series respond to common external factors, such as overall energy demand, supply disruptions, geopolitical events, or broader macroeconomic conditions. Because gasoline and crude oil prices move together over time, the model can identify statistically significant relationships even when they do not make economic sense as causal effects.
