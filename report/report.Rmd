@@ -238,6 +238,7 @@ Figure \@ref(fig:fig-gas-plot) shows that the logging and differencing removed t
 #| echo: false
 #| # Difference log gasoline prices 
 d_us_gas <- diff(log(us_gas_ts))
+gas_diff_dates <- us_gas_df$Date[-1]
 
 # Differenced log gasoline prices plots
 plot(
@@ -447,54 +448,76 @@ The forecast in Figure \@ref(fig:fig-gas-arima-model) is particularly interestin
 # 4-week forecast from the fitted ARIMA(4,0,1) model
 fc_gas <- predict(fit_arima_gas, n.ahead = forecast_horizon)
 
-# Convert forecasts and intervals to ts objects aligned with the test period
-fc_mean_ts <- ts(
-  fc_gas$pred,
-  start = start(test_d_us_gas),
-  frequency = frequency(test_d_us_gas)
-)
+# Forecast vectors
+fc_mean <- as.numeric(fc_gas$pred)
+fc_se <- as.numeric(fc_gas$se)
+fc_lower <- fc_mean - 1.96 * fc_se
+fc_upper <- fc_mean + 1.96 * fc_se
 
-fc_se_ts <- ts(
-  fc_gas$se,
-  start = start(test_d_us_gas),
-  frequency = frequency(test_d_us_gas)
-)
-
-fc_lower_ts <- fc_mean_ts - 1.96 * fc_se_ts
-fc_upper_ts <- fc_mean_ts + 1.96 * fc_se_ts
+# Actual dates corresponding to the differenced gasoline series
+train_dates <- gas_diff_dates[1:(n_gas - forecast_horizon)]
+test_dates  <- gas_diff_dates[(n_gas - forecast_horizon + 1):n_gas]
 
 # Show the last 20 weeks before the forecast origin plus the test period
 weeks_of_history <- 20
-tail_start_time <- time(d_us_gas)[n_gas - forecast_horizon - weeks_of_history + 1]
+tail_idx_start <- n_gas - forecast_horizon - weeks_of_history + 1
 
-actual_tail_ts <- window(
-  d_us_gas,
-  start = tail_start_time
-)
+actual_tail_y <- d_us_gas[tail_idx_start:(n_gas - forecast_horizon)]
+actual_tail_dates <- train_dates[(length(train_dates) - weeks_of_history + 1):length(train_dates)]
 
 plot(
-  actual_tail_ts,
+  x = actual_tail_dates,
+  y = actual_tail_y,
   type = "l",
   lwd = 2,
   col = "black",
   main = "ARIMA(4,0,1) Forecast Versus Actual",
   xlab = "Time",
   ylab = "Differenced Log U.S. Gasoline",
+  xlim = c(min(actual_tail_dates), max(test_dates)),
   ylim = range(
-    c(actual_tail_ts, fc_mean_ts, fc_lower_ts, fc_upper_ts)
-  )
+    c(actual_tail_y, test_d_us_gas, fc_mean, fc_lower, fc_upper),
+    na.rm = TRUE
+  ),
+  xaxt = "n"
 )
 
-# Actual held out values
-lines(test_d_us_gas, lwd = 2, col = "black")
+tick_pos <- seq(from = min(actual_tail_dates), to = max(test_dates), by = "1 month")
+axis(1, at = tick_pos, labels = format(tick_pos, "%m-%Y"))
+
+# Actual held-out values
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), test_d_us_gas),
+  lwd = 2,
+  col = "black"
+)
 
 # Forecast mean and 95% interval
-lines(fc_mean_ts, lwd = 2, lty = 2, col = "red")
-lines(fc_lower_ts, lty = 3, col = "blue")
-lines(fc_upper_ts, lty = 3, col = "blue")
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), fc_mean),
+  lwd = 2,
+  lty = 2,
+  col = "red"
+)
+
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), fc_lower),
+  lty = 3,
+  col = "blue"
+)
+
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), fc_upper),
+  lty = 3,
+  col = "blue"
+)
 
 # Forecast origin
-abline(v = time(test_d_us_gas)[1], lty = 2)
+abline(v = test_dates[1], lty = 2)
 
 legend(
   "topleft",
@@ -750,65 +773,82 @@ This may occur because the VAR model incorporates Brent crude oil prices in addi
 In contrast, the ARIMA(4,0,1) model relies only on the recent history of gasoline prices. Because the recent gasoline observations remain elevated, the ARIMA model is better able to continue the high-price pattern into the forecast period and therefore remains closer to the observed values.
 
 ```{r fig-gas-var-model, fig.cap = "The VAR(2) model predicts further away than the ARIMA(4,0,1)."}
+
 # 4-week ahead forecast
 fc_var_oil <- predict(fit_var_oil, n.ahead = forecast_horizon)
 
-# Extract gasoline forecasts and intervals
-fc_var_mean_ts <- ts(
-  fc_var_oil$fcst$Gasoline[, "fcst"],
-  start = start(test_d_us_gas_overlap),
-  frequency = frequency(test_d_us_gas_overlap)
-)
+# Extract forecast vectors (no ts())
+fc_var_mean <- fc_var_oil$fcst$Gasoline[, "fcst"]
+fc_var_lower <- fc_var_oil$fcst$Gasoline[, "lower"]
+fc_var_upper <- fc_var_oil$fcst$Gasoline[, "upper"]
 
-fc_var_lower_ts <- ts(
-  fc_var_oil$fcst$Gasoline[, "lower"],
-  start = start(test_d_us_gas_overlap),
-  frequency = frequency(test_d_us_gas_overlap)
-)
+# Split actual dates
+train_dates <- gas_brent_diff_dates[1:(n_overlap - forecast_horizon)]
+test_dates  <- gas_brent_diff_dates[(n_overlap - forecast_horizon + 1):n_overlap]
 
-fc_var_upper_ts <- ts(
-  fc_var_oil$fcst$Gasoline[, "upper"],
-  start = start(test_d_us_gas_overlap),
-  frequency = frequency(test_d_us_gas_overlap)
-)
-
-# Plot the last 20 weeks plus the 4-week forecast period
+# Last 20 weeks of training data
 weeks_of_history <- 20
-tail_start_time <- time(d_us_gas_overlap)[n_overlap - forecast_horizon - weeks_of_history + 1]
+tail_idx_start <- n_overlap - forecast_horizon - weeks_of_history + 1
 
-actual_tail_ts <- window(
-  d_us_gas_overlap,
-  start = tail_start_time
-)
+actual_tail_y <- d_us_gas_overlap[tail_idx_start:(n_overlap - forecast_horizon)]
+actual_tail_dates <- train_dates[(length(train_dates) - weeks_of_history + 1):length(train_dates)]
 
+# Plot using real dates
 plot(
-  actual_tail_ts,
+  x = actual_tail_dates,
+  y = actual_tail_y,
   type = "l",
   lwd = 2,
   col = "black",
   main = "VAR(2) Forecast Versus Actual",
   xlab = "Time",
   ylab = "Differenced Log U.S. Gasoline",
+  xlim = c(min(actual_tail_dates), max(test_dates)),
   ylim = range(
-    c(actual_tail_ts, fc_var_mean_ts, fc_var_lower_ts, fc_var_upper_ts)
-  )
+    c(actual_tail_y, test_d_us_gas_overlap, fc_var_mean, fc_var_lower, fc_var_upper),
+    na.rm = TRUE
+  ),
+  xaxt = "n"
 )
 
-axis(
-  side = 1,
-  at = axTicks(1)[-1]
+# Monthly axis (clean + readable)
+tick_pos <- seq(from = min(actual_tail_dates), to = max(test_dates), by = "1 month")
+axis(1, at = tick_pos, labels = format(tick_pos, "%m-%Y"))
+
+# Actual held-out values
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), test_d_us_gas_overlap),
+  lwd = 2,
+  col = "black"
 )
 
-# Actual held-out gasoline values
-lines(test_d_us_gas_overlap, lwd = 2, col = "black")
+# Forecast
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), fc_var_mean),
+  lwd = 2,
+  lty = 2,
+  col = "red"
+)
 
-# VAR forecast and 95% interval
-lines(fc_var_mean_ts, lwd = 2, lty = 2, col = "red")
-lines(fc_var_lower_ts, lty = 3, col = "blue")
-lines(fc_var_upper_ts, lty = 3, col = "blue")
+# Interval
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), fc_var_lower),
+  lty = 3,
+  col = "blue"
+)
+
+lines(
+  x = c(tail(actual_tail_dates, 1), test_dates),
+  y = c(tail(actual_tail_y, 1), fc_var_upper),
+  lty = 3,
+  col = "blue"
+)
 
 # Forecast origin
-abline(v = time(test_d_us_gas_overlap)[1], lty = 2)
+abline(v = test_dates[1], lty = 2)
 
 legend(
   "topleft",
